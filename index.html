@@ -97,9 +97,15 @@
     document.addEventListener('DOMContentLoaded', () => {
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
+      const arButton = document.getElementById('ar-button');
       
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
+      });
+
+      // AR butonunun tıklama olayını dinle
+      arButton.addEventListener('click', () => {
+        console.log("AR'ı Başlat butonu tıklandı.");
       });
     });
   </script>
