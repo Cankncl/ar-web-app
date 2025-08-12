@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>AR Marker'sız Uygulama</title>
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     body { margin: 0; font-family: sans-serif; }
     #left-menu {
@@ -54,6 +54,19 @@
         text-align: center;
         border-radius: 5px;
     }
+    #unsupported-message {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background-color: #ffcc00;
+        color: #333;
+        border-radius: 10px;
+        text-align: center;
+        z-index: 9999;
+    }
   </style>
 </head>
 <body style='margin : 0px; overflow: hidden;'>
@@ -81,9 +94,11 @@
   </div>
   
   <button id="menu-toggle">☰</button>
+  <div id="unsupported-message">
+    <p>Cihazınız AR özelliğini desteklemiyor. Lütfen WebXR uyumlu bir cihaz ve tarayıcı kullanın.</p>
+  </div>
 
   <script>
-    // Konumlandırma, döndürme ve boyutlandırma için özel A-Frame bileşeni
     AFRAME.registerComponent('gestures-handler', {
       schema: {
         minScale: {default: 0.1},
@@ -146,54 +161,40 @@
       const modelList = document.getElementById('model-list');
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
+      let modelIdToPlace = null;
+      let placementIndicator = null;
+      let hitTestResults = null;
       
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
       });
 
-      let modelIdToPlace = null;
-      let placementIndicator;
+      // WebXR uyumluluk kontrolü
+      scene.addEventListener('reality-ready', () => {
+        if (!scene.is('ar-mode')) {
+          document.getElementById('unsupported-message').style.display = 'block';
+        }
+      });
 
-      // AR oturumu başladığında yüzey algılamayı etkinleştir
-      scene.addEventListener('enter-vr', function (event) {
-        if (scene.is('ar-mode')) {
-          // Yüzey algılama için görsel bir indikatör ekle
-          placementIndicator = document.createElement('a-entity');
-          placementIndicator.setAttribute('geometry', 'primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32');
-          placementIndicator.setAttribute('material', 'color: yellow; shader: flat; side: double');
-          placementIndicator.setAttribute('rotation', '-90 0 0');
+      // Hit test başladığında görsel işaretleyiciyi oluştur
+      scene.addEventListener('ar-hit-test-start', (event) => {
+        placementIndicator = document.createElement('a-entity');
+        placementIndicator.setAttribute('geometry', 'primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32');
+        placementIndicator.setAttribute('material', 'color: yellow; shader: flat; side: double');
+        placementIndicator.setAttribute('rotation', '-90 0 0');
+        placementIndicator.setAttribute('visible', 'false');
+        scene.appendChild(placementIndicator);
+      });
+
+      // Hit test sonuçlarına göre görsel işaretleyiciyi güncelle
+      scene.addEventListener('ar-hit-test-results', (event) => {
+        hitTestResults = event.detail.results;
+        if (hitTestResults.length > 0) {
+          const hit = hitTestResults[0];
+          placementIndicator.setAttribute('position', hit.position);
+          placementIndicator.setAttribute('visible', 'true');
+        } else {
           placementIndicator.setAttribute('visible', 'false');
-          scene.appendChild(placementIndicator);
-
-          // A-Frame'in kendi hit-test bileşenini kullanıyoruz
-          scene.components['ar-hit-test-manager'] = {
-            init: function() {
-              this.hitTestSource = null;
-              this.el.addEventListener('ar-hit-test-start', (event) => {
-                this.hitTestSource = event.detail.hitTestSource;
-              });
-              this.el.addEventListener('ar-hit-test-end', () => {
-                this.hitTestSource = null;
-                placementIndicator.setAttribute('visible', 'false');
-              });
-              this.el.addEventListener('tick', () => {
-                if (!this.hitTestSource) return;
-                const frame = this.el.renderer.xr.getFrame();
-                if (!frame) return;
-                const results = frame.getHitTestResults(this.hitTestSource);
-                if (results.length > 0) {
-                  const hit = results[0];
-                  const hitPose = hit.getPose(this.el.renderer.xr.getReferenceSpace());
-                  const position = hitPose.transform.position;
-                  placementIndicator.setAttribute('position', { x: position.x, y: position.y, z: position.z });
-                  placementIndicator.setAttribute('visible', 'true');
-                } else {
-                  placementIndicator.setAttribute('visible', 'false');
-                }
-              });
-            }
-          };
-          scene.setAttribute('ar-hit-test-manager', '');
         }
       });
       
@@ -205,10 +206,11 @@
         console.log(modelIdToPlace + ' modeli seçildi. Yüzeyde beliren sarı halkaya dokunarak yerleştirin.');
       });
 
+      // Sahneye tıklandığında modeli yerleştir
       scene.addEventListener('click', (event) => {
-        if (!modelIdToPlace || !placementIndicator || !placementIndicator.getAttribute('visible')) return;
+        if (!modelIdToPlace || !hitTestResults || hitTestResults.length === 0) return;
         
-        const position = placementIndicator.getAttribute('position');
+        const position = hitTestResults[0].position;
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelIdToPlace}`);
         product.setAttribute('position', position);
