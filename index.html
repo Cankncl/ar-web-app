@@ -1,316 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-  <meta charset="utf-8">
-  <title>Mobilya AR Tasarımı</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <style>
-    body { margin: 0; font-family: sans-serif; overflow: hidden; }
-    .container {
-        display: flex;
-        height: 100vh;
-        width: 100vw;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ürün Listesi</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0; padding: 0;
+        background-color: #f4f4f4;
     }
-    #left-menu {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 250px;
-        height: 100%;
-        padding: 15px;
-        background-color: rgba(255, 255, 255, 0.85);
-        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-        z-index: 1000;
-        overflow-y: auto;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease-in-out;
-    }
-    #left-menu.is-open {
-        transform: translateX(0);
-    }
-    #left-menu h3 { margin-top: 0; }
-    #model-list { list-style-type: none; padding: 0; }
-    #model-list li {
-        padding: 10px;
-        background-color: #f0f0f0;
-        margin-bottom: 8px;
-        cursor: pointer;
-        border-radius: 5px;
+    h1 {
         text-align: center;
-        font-weight: bold;
-        transition: background-color 0.2s;
+        padding: 20px;
     }
-    #model-list li.selected, #model-list li:hover {
-        background-color: #e0e0e0;
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        padding: 20px;
+        max-width: 1200px;
+        margin: auto;
     }
-    #menu-toggle {
-        position: fixed;
-        left: 15px;
-        top: 15px;
-        width: 40px;
-        height: 40px;
-        background-color: rgba(255, 255, 255, 0.85);
-        border: none;
+    .product {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         cursor: pointer;
-        z-index: 1001;
-        font-size: 24px;
-        line-height: 40px;
-        text-align: center;
-        border-radius: 5px;
+        transition: transform 0.2s;
     }
-    #preview-container {
+    .product:hover {
+        transform: scale(1.03);
+    }
+    .product img {
         width: 100%;
-        height: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+    .product h3 {
+        margin: 10px;
+    }
+    .product p {
+        margin: 10px;
+        color: gray;
+    }
+    /* Detay görünümü */
+    .detail {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+    .detail-content {
+        background: white;
+        border-radius: 10px;
+        max-width: 500px;
+        width: 100%;
+        padding: 20px;
         position: relative;
     }
-    #ar-button-container {
+    .detail-content img {
+        width: 100%;
+        border-radius: 10px;
+    }
+    .close-btn {
         position: absolute;
-        bottom: 50px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 2000;
-    }
-    #ar-button {
-        padding: 15px 30px;
+        top: 10px;
+        right: 15px;
         font-size: 18px;
-        font-weight: bold;
-        color: white;
-        background-color: #e74c3c;
-        border: none;
-        border-radius: 8px;
         cursor: pointer;
-        display: none;
+        background: #ff5a5a;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 10px;
     }
-  </style>
+</style>
 </head>
 <body>
 
-  <div class="container">
-    <div id="left-menu">
-      <h3>Modeller</h3>
-      <ul id="model-list">
-        <li data-model="chair-model" data-glb="./models/chair.glb" data-usdz="./models/chair.usdz">Sandalye</li>
-        <li data-model="table-model" data-glb="./models/table.glb" data-usdz="./models/table.usdz">Masa</li>
-        <li data-model="lamp-model" data-glb="./models/lamp.glb" data-usdz="./models/lamp.usdz">Lamba</li>
-      </ul>
+<h1>Ürünlerimiz</h1>
+<div class="grid" id="productGrid">
+    <!-- Ürünler JS ile eklenecek -->
+</div>
+
+<!-- Detay Modal -->
+<div class="detail" id="detailModal">
+    <div class="detail-content">
+        <button class="close-btn" onclick="closeDetail()">Kapat</button>
+        <img id="detailImage" src="" alt="">
+        <h2 id="detailTitle"></h2>
+        <p id="detailDescription"></p>
     </div>
+</div>
 
-    <div id="preview-container">
-      <a-scene
-        id="main-scene"
-        embedded
-        webxr="requiredFeatures: hit-test, local-floor;"
-        vr-mode-ui="enabled: false"
-        ar-mode-ui="enabled: false">
-        
-        <a-assets timeout="10000">
-          <a-asset-item id="chair-model" src="./models/chair.glb"></a-asset-item>
-          <a-asset-item id="table-model" src="./models/table.glb"></a-asset-item>
-          <a-asset-item id="lamp-model" src="./models/lamp.glb"></a-asset-item>
-        </a-assets>
+<script>
+const products = [
+    {
+        id: 1,
+        title: "Kırmızı Elbise",
+        description: "Şık ve modern kırmızı elbise.",
+        image: "https://via.placeholder.com/400x300/ff4f4f/ffffff?text=Kırmızı+Elbise"
+    },
+    {
+        id: 2,
+        title: "Siyah Ceket",
+        description: "Günlük kullanım için ideal siyah ceket.",
+        image: "https://via.placeholder.com/400x300/000000/ffffff?text=Siyah+Ceket"
+    },
+    {
+        id: 3,
+        title: "Beyaz Gömlek",
+        description: "Klasik ve zarif beyaz gömlek.",
+        image: "https://via.placeholder.com/400x300/ffffff/000000?text=Beyaz+Gömlek"
+    }
+];
 
-        <a-camera position="0 1.6 4" rotation="0 0 0" wasd-controls="enabled: false">
-          <a-entity cursor="fuse: false; rayOrigin: mouse;"></a-entity>
-        </a-camera>
+// Ürünleri ekle
+const grid = document.getElementById("productGrid");
+products.forEach(product => {
+    const div = document.createElement("div");
+    div.className = "product";
+    div.innerHTML = `
+        <img src="${product.image}" alt="${product.title}">
+        <h3>${product.title}</h3>
+        <p>${product.description}</p>
+    `;
+    div.onclick = () => showDetail(product);
+    grid.appendChild(div);
+});
 
-        <a-light type="ambient" color="#fff"></a-light>
-        <a-light type="directional" position="1 1 -1" color="#fff" intensity="0.5"></a-light>
+function showDetail(product) {
+    document.getElementById("detailImage").src = product.image;
+    document.getElementById("detailTitle").innerText = product.title;
+    document.getElementById("detailDescription").innerText = product.description;
+    document.getElementById("detailModal").style.display = "flex";
+}
 
-        <a-entity id="reticle"
-          geometry="primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32"
-          material="color: yellow; shader: flat; side: double"
-          rotation="-90 0 0"
-          visible="false">
-        </a-entity>
-      </a-scene>
+function closeDetail() {
+    document.getElementById("detailModal").style.display = "none";
+}
+</script>
 
-      <div id="ar-button-container">
-        <button id="ar-button" disabled>AR'a Ekle</button>
-      </div>
-    </div>
-    
-    <button id="menu-toggle">☰</button>
-  </div>
-
-  <script>
-    AFRAME.registerComponent('gestures-handler', {
-      schema: { minScale: { default: 0.1 }, maxScale: { default: 2.0 } },
-      init: function () {
-        this.handle = this.handle.bind(this);
-        this.el.addEventListener('touchstart', this.handle);
-        this.el.addEventListener('touchmove', this.handle);
-        this.el.addEventListener('touchend', this.handle);
-        this.startDist = null; this.startScale = null; this.startX = null;
-      },
-      handle: function (e) {
-        if (e.touches.length === 2) {
-          if (e.type === 'touchstart') {
-            const [a, b] = e.touches;
-            this.startDist = Math.hypot(b.pageX - a.pageX, b.pageY - a.pageY);
-            this.startScale = this.el.object3D.scale.x;
-          } else if (e.type === 'touchmove' && this.startDist) {
-            const [a, b] = e.touches;
-            const d = Math.hypot(b.pageX - a.pageX, b.pageY - a.pageY);
-            const factor = d / this.startDist;
-            const newS = Math.max(this.data.minScale, Math.min(this.data.maxScale, this.startScale * factor));
-            this.el.object3D.scale.set(newS, newS, newS);
-          }
-        } else if (e.touches.length === 1) {
-          if (e.type === 'touchstart') {
-            this.startX = e.touches[0].pageX;
-          } else if (e.type === 'touchmove' && this.startX !== null) {
-            const dx = e.touches[0].pageX - this.startX;
-            this.el.object3D.rotation.y += dx * 0.005;
-            this.startX = e.touches[0].pageX;
-          }
-        } else if (e.type === 'touchend') {
-          this.startDist = null; this.startScale = null; this.startX = null;
-        }
-      }
-    });
-
-    const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    const scene = document.getElementById('main-scene');
-    const modelList = document.getElementById('model-list');
-    const arButton = document.getElementById('ar-button');
-    const reticle = document.getElementById('reticle');
-    const menuToggle = document.getElementById('menu-toggle');
-    const leftMenu = document.getElementById('left-menu');
-
-    let currentPreviewModel = null;
-    let selectedModel = null;
-
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log("DOMContentLoaded: Sayfa yüklendi.");
-      
-      // WebXR desteği yoksa butonu gizle
-      if (!navigator.xr && !isIOS()) {
-          console.log("WebXR desteği bulunamadı, AR butonu gizleniyor.");
-          arButton.style.display = 'none';
-      }
-
-      menuToggle.addEventListener('click', () => {
-        leftMenu.classList.toggle('is-open');
-      });
-
-      // Model seçimi
-      modelList.addEventListener('click', (event) => {
-        const listItem = event.target.closest('li');
-        if (!listItem) return;
-        
-        console.log("Model seçimi yapıldı:", listItem.dataset.model);
-        
-        const allItems = modelList.querySelectorAll('li');
-        allItems.forEach(item => item.classList.remove('selected'));
-        listItem.classList.add('selected');
-        
-        selectedModel = {
-            id: listItem.dataset.model,
-            glb: listItem.dataset.glb,
-            usdz: listItem.dataset.usdz
-        };
-        
-        if (currentPreviewModel) {
-          scene.removeChild(currentPreviewModel);
-          currentPreviewModel = null;
-        }
-        
-        currentPreviewModel = document.createElement('a-entity');
-        currentPreviewModel.setAttribute('gltf-model', `#${selectedModel.id}`);
-        currentPreviewModel.setAttribute('position', '0 1 -2.5');
-        currentPreviewModel.setAttribute('scale', '1 1 1');
-        currentPreviewModel.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 10000;');
-        scene.appendChild(currentPreviewModel);
-
-        arButton.style.display = 'block';
-        arButton.disabled = false;
-        
-        arButton.textContent = isIOS() ? "Quick Look ile Görüntüle" : "AR'a Ekle";
-
-        leftMenu.classList.remove('is-open');
-        console.log("Model önizlemesi eklendi.");
-      });
-
-      // AR'a geçiş butonu
-      arButton.addEventListener('click', async () => {
-        console.log("AR butonu tıklandı.");
-        if (!selectedModel) {
-          alert("Lütfen önce bir model seçin.");
-          return;
-        }
-        
-        // Önizleme modelini kaldır
-        if (currentPreviewModel) {
-          scene.removeChild(currentPreviewModel);
-          currentPreviewModel = null;
-        }
-        
-        if (isIOS()) {
-            if (!selectedModel.usdz) {
-                alert("Seçilen model için USDZ dosyası bulunamadı.");
-                return;
-            }
-            const a = document.createElement('a');
-            a.setAttribute('rel', 'ar');
-            a.setAttribute('href', selectedModel.usdz);
-            a.setAttribute('style', 'display: none;');
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            console.log("iOS Quick Look başlatıldı.");
-            return;
-        }
-
-        // Android (WebXR) için
-        try {
-          console.log("AR oturumu başlatılıyor...");
-          await scene.enterAR();
-
-          console.log("AR oturumu başarıyla başlatıldı.");
-          
-          arButton.style.display = 'none';
-
-          scene.addEventListener('click', (event) => {
-            if (!selectedModel || !reticle.getAttribute('visible')) return;
-            
-            const position = reticle.getAttribute('position');
-            const product = document.createElement('a-entity');
-            product.setAttribute('gltf-model', `#${selectedModel.id}`);
-            product.setAttribute('position', position);
-            product.setAttribute('scale', '0.5 0.5 0.5');
-            product.setAttribute('gestures-handler', '');
-            product.classList.add('placed-model');
-            scene.appendChild(product);
-            console.log("Model AR ortamına yerleştirildi.");
-          });
-        } catch (e) {
-          console.error("AR oturumu başlatma hatası:", e);
-          alert("AR başlatılamadı: " + e.message);
-        }
-      });
-      
-      // A-Frame'den gelen asset yükleme/hata olaylarını dinle
-      scene.addEventListener('loaded', () => { console.log('A-Frame sahnesi tamamen yüklendi.'); });
-      scene.addEventListener('asset-load-error', (e) => { console.error('Asset yüklenemedi:', e.detail.src); });
-      scene.addEventListener('model-error', (e) => { console.error('Model yükleme hatası:', e.detail.src); });
-
-      // AR hit-test sonuçları sadece AR modunda çalışacak
-      scene.addEventListener('ar-hit-test-results', (event) => {
-        if (scene.is('ar-mode')) {
-            const hitTestResults = event.detail.results;
-            if (hitTestResults.length > 0) {
-              const hit = hitTestResults[0];
-              reticle.setAttribute('position', hit.position);
-              reticle.setAttribute('visible', 'true');
-            } else {
-              reticle.setAttribute('visible', 'false');
-            }
-        } else {
-            reticle.setAttribute('visible', 'false');
-        }
-      });
-    });
-  </script>
 </body>
 </html>
