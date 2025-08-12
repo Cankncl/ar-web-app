@@ -65,7 +65,7 @@
     }
     #ar-button-container {
         position: absolute;
-        bottom: 50px; /* Butonu biraz yukarı çıkardım */
+        bottom: 50px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 2000;
@@ -103,7 +103,7 @@
         vr-mode-ui="enabled: false"
         ar-mode-ui="enabled: false">
         
-        <a-assets>
+        <a-assets timeout="10000">
           <a-asset-item id="chair-model" src="./models/chair.glb"></a-asset-item>
           <a-asset-item id="table-model" src="./models/table.glb"></a-asset-item>
           <a-asset-item id="lamp-model" src="./models/lamp.glb"></a-asset-item>
@@ -170,17 +170,25 @@
     });
 
     const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    const scene = document.getElementById('main-scene');
+    const modelList = document.getElementById('model-list');
+    const arButton = document.getElementById('ar-button');
+    const reticle = document.getElementById('reticle');
+    const menuToggle = document.getElementById('menu-toggle');
+    const leftMenu = document.getElementById('left-menu');
+
+    let currentPreviewModel = null;
+    let selectedModel = null;
 
     document.addEventListener('DOMContentLoaded', () => {
-      const scene = document.getElementById('main-scene');
-      const modelList = document.getElementById('model-list');
-      const arButton = document.getElementById('ar-button');
-      const reticle = document.getElementById('reticle');
-      const menuToggle = document.getElementById('menu-toggle');
-      const leftMenu = document.getElementById('left-menu');
-
-      let currentPreviewModel = null;
-      let selectedModel = null;
+      console.log("DOMContentLoaded: Sayfa yüklendi.");
+      
+      // WebXR desteği yoksa butonu gizle
+      if (!navigator.xr && !isIOS()) {
+          console.log("WebXR desteği bulunamadı, AR butonu gizleniyor.");
+          arButton.style.display = 'none';
+      }
 
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
@@ -190,6 +198,8 @@
       modelList.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
         if (!listItem) return;
+        
+        console.log("Model seçimi yapıldı:", listItem.dataset.model);
         
         const allItems = modelList.querySelectorAll('li');
         allItems.forEach(item => item.classList.remove('selected'));
@@ -219,11 +229,12 @@
         arButton.textContent = isIOS() ? "Quick Look ile Görüntüle" : "AR'a Ekle";
 
         leftMenu.classList.remove('is-open');
-        console.log("Model seçildi ve önizleme ekranda:", selectedModel);
+        console.log("Model önizlemesi eklendi.");
       });
 
       // AR'a geçiş butonu
       arButton.addEventListener('click', async () => {
+        console.log("AR butonu tıklandı.");
         if (!selectedModel) {
           alert("Lütfen önce bir model seçin.");
           return;
@@ -243,7 +254,7 @@
             const a = document.createElement('a');
             a.setAttribute('rel', 'ar');
             a.setAttribute('href', selectedModel.usdz);
-            a.setAttribute('style', 'display: none;'); // Görünmez yapıldı
+            a.setAttribute('style', 'display: none;');
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -271,13 +282,19 @@
             product.setAttribute('gestures-handler', '');
             product.classList.add('placed-model');
             scene.appendChild(product);
+            console.log("Model AR ortamına yerleştirildi.");
           });
         } catch (e) {
-          console.error("AR oturumu başlatılamadı:", e);
-          alert("AR başlatılamadı. Cihazınızın WebXR'ı desteklediğinden emin olun.");
+          console.error("AR oturumu başlatma hatası:", e);
+          alert("AR başlatılamadı: " + e.message);
         }
       });
       
+      // A-Frame'den gelen asset yükleme/hata olaylarını dinle
+      scene.addEventListener('loaded', () => { console.log('A-Frame sahnesi tamamen yüklendi.'); });
+      scene.addEventListener('asset-load-error', (e) => { console.error('Asset yüklenemedi:', e.detail.src); });
+      scene.addEventListener('model-error', (e) => { console.error('Model yükleme hatası:', e.detail.src); });
+
       // AR hit-test sonuçları sadece AR modunda çalışacak
       scene.addEventListener('ar-hit-test-results', (event) => {
         if (scene.is('ar-mode')) {
