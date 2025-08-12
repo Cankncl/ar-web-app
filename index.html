@@ -85,7 +85,7 @@
     AFRAME.registerComponent('gestures-handler', {
       schema: {
         minScale: {default: 0.1},
-        maxScale: {default: 1.0}
+        maxScale: {default: 2.0} // Maksimum ölçek değeri 2.0'ye çıkarıldı
       },
       init: function () {
         this.handleTouchMove = this.handleTouchMove.bind(this);
@@ -132,8 +132,8 @@
 
         const currentPos = this.el.getAttribute('position');
         const newPos = {
-            x: currentPos.x + deltaX * 0.005,
-            y: currentPos.y + -deltaY * 0.005,
+            x: currentPos.x + deltaX * 0.01, // Hassasiyet artırıldı
+            y: currentPos.y + -deltaY * 0.01, // Hassasiyet artırıldı
             z: currentPos.z
         };
         this.el.setAttribute('position', newPos);
@@ -171,7 +171,7 @@
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelId}`);
         product.setAttribute('position', '0 0.2 0');
-        product.setAttribute('scale', '0.3 0.3 0.3'); // Başlangıç ölçeği daha büyük
+        product.setAttribute('scale', '0.5 0.5 0.5'); // Başlangıç ölçeği artırıldı
         product.setAttribute('class', 'current-model');
         product.setAttribute('gestures-handler', ''); 
         
