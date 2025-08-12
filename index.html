@@ -18,6 +18,7 @@
       z-index: 1000;
       transform: translateX(-100%);
       transition: transform 0.3s ease-in-out;
+      box-sizing: border-box; /* Menü boyutunun padding'ten etkilenmemesi için */
     }
     #left-menu.is-open {
         transform: translateX(0);
@@ -26,6 +27,8 @@
     #model-list {
       list-style-type: none;
       padding: 0;
+      max-height: calc(100% - 60px); /* Menü başlığı kadar boşluk bırak */
+      overflow-y: auto;
     }
     #model-list li {
       padding: 10px;
@@ -54,34 +57,29 @@
         text-align: center;
         border-radius: 5px;
     }
-    #unsupported-message {
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        padding: 20px;
-        background-color: #ffcc00;
-        color: #333;
-        border-radius: 10px;
-        text-align: center;
-        z-index: 9999;
-    }
   </style>
 </head>
 <body style='margin : 0px; overflow: hidden;'>
 
-  <a-scene webxr="requiredFeatures: hit-test, local-floor;">
+  <a-scene webxr="requiredFeatures: hit-test, local-floor;" ar-mode-ui="enabled: true">
     <a-assets>
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
       <a-asset-item id="lamp-model" src="./lamp.glb"></a-asset-item>
     </a-assets>
+    
+    <a-entity ar-hit-test="target-reticle: #reticle;"></a-entity>
+
+    <a-entity id="reticle"
+      geometry="primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32"
+      material="color: yellow; shader: flat; side: double"
+      rotation="-90 0 0"
+      visible="false">
+    </a-entity>
 
     <a-camera position="0 1.6 0" look-controls="enabled: false">
-        <a-entity cursor raycaster="objects: .can-click"></a-entity>
+      <a-entity cursor raycaster="objects: .can-click"></a-entity>
     </a-camera>
-
   </a-scene>
 
   <div id="left-menu">
@@ -94,11 +92,9 @@
   </div>
   
   <button id="menu-toggle">☰</button>
-  <div id="unsupported-message">
-    <p>Cihazınız AR özelliğini desteklemiyor. Lütfen WebXR uyumlu bir cihaz ve tarayıcı kullanın.</p>
-  </div>
 
   <script>
+    // Modelin hareket, döndürme ve boyutlandırma bileşeni
     AFRAME.registerComponent('gestures-handler', {
       schema: {
         minScale: {default: 0.1},
@@ -142,13 +138,10 @@
         if (event.touches.length !== 1) return;
         
         const deltaX = event.touches[0].pageX - this.lastX;
-        const deltaY = event.touches[0].pageY - this.lastY;
-
         const rotationY = this.el.object3D.rotation.y + deltaX * 0.005;
         this.el.object3D.rotation.y = rotationY;
         
         this.lastX = event.touches[0].pageX;
-        this.lastY = event.touches[0].pageY;
       },
 
       getDistance: function (touch1, touch2) {
@@ -162,42 +155,13 @@
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
       let modelIdToPlace = null;
-      let placementIndicator = null;
-      let hitTestResults = null;
-      
+      let reticle = document.getElementById('reticle');
+
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
       });
 
-      // WebXR uyumluluk kontrolü
-      scene.addEventListener('reality-ready', () => {
-        if (!scene.is('ar-mode')) {
-          document.getElementById('unsupported-message').style.display = 'block';
-        }
-      });
-
-      // Hit test başladığında görsel işaretleyiciyi oluştur
-      scene.addEventListener('ar-hit-test-start', (event) => {
-        placementIndicator = document.createElement('a-entity');
-        placementIndicator.setAttribute('geometry', 'primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32');
-        placementIndicator.setAttribute('material', 'color: yellow; shader: flat; side: double');
-        placementIndicator.setAttribute('rotation', '-90 0 0');
-        placementIndicator.setAttribute('visible', 'false');
-        scene.appendChild(placementIndicator);
-      });
-
-      // Hit test sonuçlarına göre görsel işaretleyiciyi güncelle
-      scene.addEventListener('ar-hit-test-results', (event) => {
-        hitTestResults = event.detail.results;
-        if (hitTestResults.length > 0) {
-          const hit = hitTestResults[0];
-          placementIndicator.setAttribute('position', hit.position);
-          placementIndicator.setAttribute('visible', 'true');
-        } else {
-          placementIndicator.setAttribute('visible', 'false');
-        }
-      });
-      
+      // Menüden model seçimi
       modelList.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
         if (!listItem) return;
@@ -206,11 +170,11 @@
         console.log(modelIdToPlace + ' modeli seçildi. Yüzeyde beliren sarı halkaya dokunarak yerleştirin.');
       });
 
-      // Sahneye tıklandığında modeli yerleştir
+      // Sahneye dokunulduğunda modeli yerleştirme
       scene.addEventListener('click', (event) => {
-        if (!modelIdToPlace || !hitTestResults || hitTestResults.length === 0) return;
+        if (!modelIdToPlace || !reticle || !reticle.getAttribute('visible')) return;
         
-        const position = hitTestResults[0].position;
+        const position = reticle.getAttribute('position');
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelIdToPlace}`);
         product.setAttribute('position', position);
