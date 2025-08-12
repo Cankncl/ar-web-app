@@ -18,7 +18,7 @@
       z-index: 1000;
       transform: translateX(-100%);
       transition: transform 0.3s ease-in-out;
-      box-sizing: border-box; /* Menü boyutunun padding'ten etkilenmemesi için */
+      box-sizing: border-box;
     }
     #left-menu.is-open {
         transform: translateX(0);
@@ -27,7 +27,7 @@
     #model-list {
       list-style-type: none;
       padding: 0;
-      max-height: calc(100% - 60px); /* Menü başlığı kadar boşluk bırak */
+      max-height: calc(100% - 60px);
       overflow-y: auto;
     }
     #model-list li {
@@ -57,11 +57,27 @@
         text-align: center;
         border-radius: 5px;
     }
+    #ar-button {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+      background-color: #e74c3c;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 2000;
+      display: none; /* İlk başta gizli olacak */
+    }
   </style>
 </head>
 <body style='margin : 0px; overflow: hidden;'>
 
-  <a-scene webxr="requiredFeatures: hit-test, local-floor;" ar-mode-ui="enabled: true">
+  <a-scene webxr="requiredFeatures: hit-test, local-floor;" >
     <a-assets>
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
@@ -69,7 +85,6 @@
     </a-assets>
     
     <a-entity ar-hit-test="target-reticle: #reticle;"></a-entity>
-
     <a-entity id="reticle"
       geometry="primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32"
       material="color: yellow; shader: flat; side: double"
@@ -92,9 +107,9 @@
   </div>
   
   <button id="menu-toggle">☰</button>
+  <button id="ar-button">AR'ı Başlat</button>
 
   <script>
-    // Modelin hareket, döndürme ve boyutlandırma bileşeni
     AFRAME.registerComponent('gestures-handler', {
       schema: {
         minScale: {default: 0.1},
@@ -154,14 +169,38 @@
       const modelList = document.getElementById('model-list');
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
+      const arButton = document.getElementById('ar-button');
       let modelIdToPlace = null;
       let reticle = document.getElementById('reticle');
 
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
       });
+      
+      // AR destekleniyorsa butonu göster
+      scene.addEventListener('webxr-supported', () => {
+        arButton.style.display = 'block';
+      });
 
-      // Menüden model seçimi
+      // AR butonuna tıklandığında oturumu başlat
+      arButton.addEventListener('click', () => {
+        if (!scene.is('ar-mode')) {
+          scene.enterAR();
+          arButton.style.display = 'none';
+        }
+      });
+
+      scene.addEventListener('ar-hit-test-results', (event) => {
+        const hitTestResults = event.detail.results;
+        if (hitTestResults.length > 0) {
+          const hit = hitTestResults[0];
+          reticle.setAttribute('position', hit.position);
+          reticle.setAttribute('visible', 'true');
+        } else {
+          reticle.setAttribute('visible', 'false');
+        }
+      });
+      
       modelList.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
         if (!listItem) return;
@@ -170,7 +209,6 @@
         console.log(modelIdToPlace + ' modeli seçildi. Yüzeyde beliren sarı halkaya dokunarak yerleştirin.');
       });
 
-      // Sahneye dokunulduğunda modeli yerleştirme
       scene.addEventListener('click', (event) => {
         if (!modelIdToPlace || !reticle || !reticle.getAttribute('visible')) return;
         
