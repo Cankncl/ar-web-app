@@ -71,13 +71,13 @@
       border-radius: 5px;
       cursor: pointer;
       z-index: 2000;
-      display: none; /* İlk başta gizli olacak */
+      display: block; /* Buton artık her zaman görünür olacak */
     }
   </style>
 </head>
 <body style='margin : 0px; overflow: hidden;'>
 
-  <a-scene webxr="requiredFeatures: hit-test, local-floor;" >
+  <a-scene webxr="requiredFeatures: hit-test, local-floor;">
     <a-assets>
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
@@ -177,11 +177,6 @@
         leftMenu.classList.toggle('is-open');
       });
       
-      // AR destekleniyorsa butonu göster
-      scene.addEventListener('webxr-supported', () => {
-        arButton.style.display = 'block';
-      });
-
       // AR butonuna tıklandığında oturumu başlat
       arButton.addEventListener('click', () => {
         if (!scene.is('ar-mode')) {
@@ -190,6 +185,7 @@
         }
       });
 
+      // AR modu başladığında hit test sonuçlarını dinle
       scene.addEventListener('ar-hit-test-results', (event) => {
         const hitTestResults = event.detail.results;
         if (hitTestResults.length > 0) {
