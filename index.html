@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>AR Çoklu Ürün Uygulaması</title>
+  <title>AR Etkileşimli Ürün Uygulaması</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
@@ -36,18 +36,21 @@
     #model-list li:hover {
       background-color: #e0e0e0;
     }
-    #info-message {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: rgba(0, 0, 0, 0.6);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 5px;
-        font-size: 14px;
-        z-index: 1001;
-        display: none; /* Başlangıçta gizli */
+    #ar-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1001;
+      display: flex;
+      gap: 10px;
+    }
+    #ar-controls button {
+      padding: 10px 15px;
+      font-size: 20px;
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -59,7 +62,10 @@
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
       <a-asset-item id="lamp-model" src="./lamp.glb"></a-asset-item>
     </a-assets>
-    <a-marker-camera type='pattern' preset='hiro'></a-marker-camera>
+
+    <a-marker-camera type='pattern' preset='hiro'>
+      <a-entity cursor="rayOrigin: mouse; fuse: false;" id="mouse-cursor"></a-entity>
+    </a-marker-camera>
   </a-scene>
 
   <div id="left-menu">
@@ -71,14 +77,19 @@
     </ul>
   </div>
   
-  <div id="info-message">Modelleri görmek için markerı kameraya gösterin.</div>
+  <div id="ar-controls">
+    <button onclick="rotateModel('left')">⟲</button>
+    <button onclick="rotateModel('right')">⟳</button>
+    <button onclick="scaleModel('down')">-</button>
+    <button onclick="scaleModel('up')">+</button>
+  </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const modelList = document.getElementById('model-list');
       const marker = document.querySelector('a-marker-camera');
-      const infoMessage = document.getElementById('info-message');
-
+      let currentModel = null; // Şu an seçili olan modeli takip et
+      
       modelList.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
         if (!listItem) return;
@@ -86,29 +97,37 @@
         const modelId = listItem.dataset.model;
         const position = listItem.dataset.position;
         
-        console.log(`'${modelId}' modeline tıklandı. Sahneye ekleniyor...`);
-
         // Önceki modeli sil
-        const existingModel = marker.querySelector('.current-model');
-        if (existingModel) {
-          existingModel.remove();
+        if (currentModel) {
+          currentModel.remove();
         }
 
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelId}`);
         product.setAttribute('position', position);
-        product.setAttribute('scale', '0.1 0.1 0.1'); // Ölçek ayarı
+        product.setAttribute('scale', '0.1 0.1 0.1'); 
         product.setAttribute('class', 'current-model'); // Seçili modeli işaretle
         
         // Markera modeli ekle
         marker.appendChild(product);
+        currentModel = product; // Yeni modeli currentModel olarak ayarla
         
-        // Kullanıcıya geri bildirim ver
-        infoMessage.style.display = 'block';
-        setTimeout(() => {
-            infoMessage.style.display = 'none';
-        }, 3000);
+        console.log(`'${modelId}' modeli sahneye eklendi.`);
       });
+
+      window.rotateModel = (direction) => {
+          if (!currentModel) return;
+          const currentRotation = currentModel.getAttribute('rotation');
+          const rotationY = currentRotation.y + (direction === 'left' ? 10 : -10);
+          currentModel.setAttribute('rotation', { x: 0, y: rotationY, z: 0 });
+      };
+
+      window.scaleModel = (direction) => {
+          if (!currentModel) return;
+          const currentScale = currentModel.getAttribute('scale');
+          const newScale = direction === 'up' ? currentScale.x * 1.1 : currentScale.x / 1.1;
+          currentModel.setAttribute('scale', { x: newScale, y: newScale, z: newScale });
+      };
     });
   </script>
 </body>
