@@ -58,8 +58,7 @@
 </head>
 <body style='margin : 0px; overflow: hidden;'>
 
-  <a-scene webxr="requiredFeatures: hit-test, local-floor;"
-           ar-mode-ui="enabled: true;">
+  <a-scene webxr="requiredFeatures: hit-test, local-floor;">
     <a-assets>
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
@@ -67,7 +66,7 @@
     </a-assets>
 
     <a-camera position="0 1.6 0" look-controls="enabled: false">
-      <a-entity cursor="rayOrigin: mouse" raycaster="objects: .can-click"></a-entity>
+        <a-entity cursor raycaster="objects: .can-click"></a-entity>
     </a-camera>
 
   </a-scene>
@@ -142,97 +141,81 @@
       }
     });
 
-    // Modeli algılanan yüzeye yerleştirme bileşeni
-    AFRAME.registerComponent('ar-placement-manager', {
-      init: function() {
-        this.sessionStarted = false;
-        this.scene = document.querySelector('a-scene');
-        this.modelList = document.getElementById('model-list');
-        this.placementIndicator = document.createElement('a-entity');
-        this.placementIndicator.setAttribute('geometry', 'primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32');
-        this.placementIndicator.setAttribute('material', 'color: yellow; shader: flat; side: double');
-        this.placementIndicator.setAttribute('rotation', '-90 0 0');
-        this.placementIndicator.setAttribute('visible', 'false');
-        this.scene.appendChild(this.placementIndicator);
-
-        this.raycaster = new THREE.Raycaster();
-        this.tempVector2 = new THREE.Vector2();
-        this.hitTestSource = null;
-
-        this.modelIdToPlace = null;
-
-        this.sessionStartHandler = this.sessionStartHandler.bind(this);
-        this.tick = this.tick.bind(this);
-
-        this.scene.addEventListener('ar-hit-test-start', (event) => {
-          this.hitTestSource = event.detail.hitTestSource;
-          this.sessionStarted = true;
-          this.scene.addEventListener('tick', this.tick);
-        });
-
-        this.scene.addEventListener('ar-hit-test-end', (event) => {
-          this.hitTestSource = null;
-          this.sessionStarted = false;
-          this.placementIndicator.setAttribute('visible', 'false');
-          this.scene.removeEventListener('tick', this.tick);
-        });
-
-        this.modelList.addEventListener('click', (event) => {
-          const listItem = event.target.closest('li');
-          if (!listItem) return;
-          
-          this.modelIdToPlace = listItem.dataset.model;
-          console.log(this.modelIdToPlace + ' modeli seçildi. Yüzeye dokunarak yerleştirin.');
-        });
-        
-        this.scene.addEventListener('touchstart', (event) => {
-          if (!this.modelIdToPlace) return;
-          if (event.touches.length === 1 && this.placementIndicator.getAttribute('visible')) {
-            const position = this.placementIndicator.getAttribute('position');
-            this.placeObject(this.modelIdToPlace, position);
-          }
-        });
-      },
-
-      tick: function() {
-        if (!this.sessionStarted || !this.hitTestSource) return;
-
-        const frame = this.scene.renderer.xr.getFrame();
-        if (!frame) return;
-
-        const results = frame.getHitTestResults(this.hitTestSource);
-        if (results.length > 0) {
-          const hit = results[0];
-          const hitPose = hit.getPose(this.scene.renderer.xr.getReferenceSpace());
-          
-          const position = hitPose.transform.position;
-          this.placementIndicator.setAttribute('position', { x: position.x, y: position.y, z: position.z });
-          this.placementIndicator.setAttribute('visible', 'true');
-        } else {
-          this.placementIndicator.setAttribute('visible', 'false');
-        }
-      },
-
-      placeObject: function(modelId, position) {
-        const product = document.createElement('a-entity');
-        product.setAttribute('gltf-model', `#${modelId}`);
-        product.setAttribute('position', position);
-        product.setAttribute('scale', '0.5 0.5 0.5');
-        product.setAttribute('gestures-handler', '');
-        product.setAttribute('class', 'can-click');
-        this.scene.appendChild(product);
-      }
-    });
-
     document.addEventListener('DOMContentLoaded', () => {
       const scene = document.querySelector('a-scene');
-      scene.setAttribute('ar-placement-manager', '');
-      
+      const modelList = document.getElementById('model-list');
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
       
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
+      });
+
+      let modelIdToPlace = null;
+      let placementIndicator;
+
+      // AR oturumu başladığında yüzey algılamayı etkinleştir
+      scene.addEventListener('enter-vr', function (event) {
+        if (scene.is('ar-mode')) {
+          // Yüzey algılama için görsel bir indikatör ekle
+          placementIndicator = document.createElement('a-entity');
+          placementIndicator.setAttribute('geometry', 'primitive: ring; radiusInner: 0.1; radiusOuter: 0.2; segmentsTheta: 32');
+          placementIndicator.setAttribute('material', 'color: yellow; shader: flat; side: double');
+          placementIndicator.setAttribute('rotation', '-90 0 0');
+          placementIndicator.setAttribute('visible', 'false');
+          scene.appendChild(placementIndicator);
+
+          // A-Frame'in kendi hit-test bileşenini kullanıyoruz
+          scene.components['ar-hit-test-manager'] = {
+            init: function() {
+              this.hitTestSource = null;
+              this.el.addEventListener('ar-hit-test-start', (event) => {
+                this.hitTestSource = event.detail.hitTestSource;
+              });
+              this.el.addEventListener('ar-hit-test-end', () => {
+                this.hitTestSource = null;
+                placementIndicator.setAttribute('visible', 'false');
+              });
+              this.el.addEventListener('tick', () => {
+                if (!this.hitTestSource) return;
+                const frame = this.el.renderer.xr.getFrame();
+                if (!frame) return;
+                const results = frame.getHitTestResults(this.hitTestSource);
+                if (results.length > 0) {
+                  const hit = results[0];
+                  const hitPose = hit.getPose(this.el.renderer.xr.getReferenceSpace());
+                  const position = hitPose.transform.position;
+                  placementIndicator.setAttribute('position', { x: position.x, y: position.y, z: position.z });
+                  placementIndicator.setAttribute('visible', 'true');
+                } else {
+                  placementIndicator.setAttribute('visible', 'false');
+                }
+              });
+            }
+          };
+          scene.setAttribute('ar-hit-test-manager', '');
+        }
+      });
+      
+      modelList.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li');
+        if (!listItem) return;
+        modelIdToPlace = listItem.dataset.model;
+        leftMenu.classList.remove('is-open');
+        console.log(modelIdToPlace + ' modeli seçildi. Yüzeyde beliren sarı halkaya dokunarak yerleştirin.');
+      });
+
+      scene.addEventListener('click', (event) => {
+        if (!modelIdToPlace || !placementIndicator || !placementIndicator.getAttribute('visible')) return;
+        
+        const position = placementIndicator.getAttribute('position');
+        const product = document.createElement('a-entity');
+        product.setAttribute('gltf-model', `#${modelIdToPlace}`);
+        product.setAttribute('position', position);
+        product.setAttribute('scale', '0.5 0.5 0.5');
+        product.setAttribute('gestures-handler', '');
+        product.setAttribute('class', 'can-click');
+        scene.appendChild(product);
       });
     });
   </script>
