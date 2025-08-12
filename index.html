@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>AR Parmak Hareketleriyle Ürün Uygulaması</title>
+  <title>AR Konumlandırma ve Boyutlandırma</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
@@ -73,63 +73,73 @@
   <div id="left-menu">
     <h3>Ürünler</h3>
     <ul id="model-list">
-      <li data-model="chair-model" data-position="0 0.5 0">Sandalye</li>
-      <li data-model="table-model" data-position="0 0 0">Masa</li>
-      <li data-model="lamp-model" data-position="0 1 0">Lamba</li>
+      <li data-model="chair-model">Sandalye</li>
+      <li data-model="table-model">Masa</li>
+      <li data-model="lamp-model">Lamba</li>
     </ul>
   </div>
   
   <button id="menu-toggle">☰</button>
 
   <script>
-    // A-Frame için özel bir bileşen (component) tanımlıyoruz
     AFRAME.registerComponent('gestures-handler', {
       schema: {
-        minScale: {default: 0.05},
-        maxScale: {default: 0.5}
+        minScale: {default: 0.1},
+        maxScale: {default: 1.0}
       },
       init: function () {
         this.handleTouchMove = this.handleTouchMove.bind(this);
         this.handleTouchEnd = this.handleTouchEnd.bind(this);
-        this.handlePinch = this.handlePinch.bind(this);
-        this.handleRotate = this.handleRotate.bind(this);
 
         this.el.addEventListener('touchstart', this.handleTouchStart.bind(this));
       },
 
       handleTouchStart: function (event) {
-        if (event.touches.length === 1) {
-          this.lastX = event.touches[0].pageX;
-          window.addEventListener('touchmove', this.handleRotate);
-        } else if (event.touches.length === 2) {
+        if (event.touches.length === 2) {
           this.initialPinchDistance = this.getDistance(event.touches[0], event.touches[1]);
-          window.addEventListener('touchmove', this.handlePinch);
+          window.addEventListener('touchmove', this.handlePinch.bind(this));
+        } else if (event.touches.length === 1) {
+          this.lastX = event.touches[0].pageX;
+          this.lastY = event.touches[0].pageY;
+          window.addEventListener('touchmove', this.handleMove.bind(this));
         }
         window.addEventListener('touchend', this.handleTouchEnd);
       },
 
       handleTouchEnd: function () {
         this.initialPinchDistance = null;
-        window.removeEventListener('touchmove', this.handleRotate);
         window.removeEventListener('touchmove', this.handlePinch);
+        window.removeEventListener('touchmove', this.handleMove);
         window.removeEventListener('touchend', this.handleTouchEnd);
       },
 
-      handleRotate: function (event) {
-        if (event.touches.length === 1) {
-          const deltaX = event.touches[0].pageX - this.lastX;
-          this.el.object3D.rotation.y += deltaX * 0.01;
-          this.lastX = event.touches[0].pageX;
-        }
-      },
-
       handlePinch: function (event) {
+        if (event.touches.length !== 2) return;
+        
         const currentPinchDistance = this.getDistance(event.touches[0], event.touches[1]);
         const scaleFactor = currentPinchDistance / this.initialPinchDistance;
         const currentScale = this.el.object3D.scale.x;
         const newScale = Math.min(this.data.maxScale, Math.max(this.data.minScale, currentScale * scaleFactor));
         this.el.object3D.scale.set(newScale, newScale, newScale);
         this.initialPinchDistance = currentPinchDistance;
+      },
+
+      handleMove: function (event) {
+        if (event.touches.length !== 1) return;
+        
+        const deltaX = event.touches[0].pageX - this.lastX;
+        const deltaY = event.touches[0].pageY - this.lastY;
+
+        const currentPos = this.el.getAttribute('position');
+        const newPos = {
+            x: currentPos.x + deltaX * 0.005,
+            y: currentPos.y + -deltaY * 0.005,
+            z: currentPos.z
+        };
+        this.el.setAttribute('position', newPos);
+        
+        this.lastX = event.touches[0].pageX;
+        this.lastY = event.touches[0].pageY;
       },
 
       getDistance: function (touch1, touch2) {
@@ -153,7 +163,6 @@
         if (!listItem) return;
 
         const modelId = listItem.dataset.model;
-        const position = listItem.dataset.position;
         
         if (currentModel) {
           currentModel.remove();
@@ -161,14 +170,15 @@
 
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelId}`);
-        product.setAttribute('position', position);
-        product.setAttribute('scale', '0.1 0.1 0.1'); 
+        product.setAttribute('position', '0 0.2 0');
+        product.setAttribute('scale', '0.3 0.3 0.3'); // Başlangıç ölçeği daha büyük
         product.setAttribute('class', 'current-model');
-        product.setAttribute('gestures-handler', ''); // Yeni bileşeni ekle
+        product.setAttribute('gestures-handler', ''); 
         
         marker.appendChild(product);
         currentModel = product;
         
+        leftMenu.classList.remove('is-open');
         console.log(`'${modelId}' modeli sahneye eklendi. Şimdi parmak hareketleri ile kontrol edebilirsiniz.`);
       });
     });
