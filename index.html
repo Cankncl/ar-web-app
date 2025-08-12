@@ -36,6 +36,19 @@
     #model-list li:hover {
       background-color: #e0e0e0;
     }
+    #info-message {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 14px;
+        z-index: 1001;
+        display: none; /* Başlangıçta gizli */
+    }
   </style>
 </head>
 <body style='margin : 0px; overflow: hidden;'>
@@ -45,39 +58,58 @@
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
       <a-asset-item id="lamp-model" src="./lamp.glb"></a-asset-item>
-      </a-assets>
-    <a-marker-camera type='pattern' preset='hiro'>
-    </a-marker-camera>
+    </a-assets>
+    <a-marker-camera type='pattern' preset='hiro'></a-marker-camera>
   </a-scene>
 
   <div id="left-menu">
     <h3>Ürünler</h3>
     <ul id="model-list">
-      <li onclick="addModelToScene('chair-model', '0 0.5 0')">Sandalye</li>
-      <li onclick="addModelToScene('table-model', '0 0 0')">Masa</li>
-      <li onclick="addModelToScene('lamp-model', '0 1 0')">Lamba</li>
-      </ul>
+      <li data-model="chair-model" data-position="0 0.5 0">Sandalye</li>
+      <li data-model="table-model" data-position="0 0 0">Masa</li>
+      <li data-model="lamp-model" data-position="0 1 0">Lamba</li>
+    </ul>
   </div>
+  
+  <div id="info-message">Modelleri görmek için markerı kameraya gösterin.</div>
 
   <script>
-    const marker = document.querySelector('a-marker-camera');
-    
-    function addModelToScene(modelId, position) {
-      // Önceki modeli sil
-      const existingModel = marker.querySelector('.current-model');
-      if (existingModel) {
-        existingModel.remove();
-      }
+    document.addEventListener('DOMContentLoaded', () => {
+      const modelList = document.getElementById('model-list');
+      const marker = document.querySelector('a-marker-camera');
+      const infoMessage = document.getElementById('info-message');
 
-      const product = document.createElement('a-entity');
-      product.setAttribute('gltf-model', `#${modelId}`);
-      product.setAttribute('position', position);
-      product.setAttribute('scale', '0.1 0.1 0.1'); // Ölçek ayarı
-      product.setAttribute('class', 'current-model'); // Seçili modeli işaretle
-      
-      // Markera modeli ekle
-      marker.appendChild(product);
-    }
+      modelList.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li');
+        if (!listItem) return;
+
+        const modelId = listItem.dataset.model;
+        const position = listItem.dataset.position;
+        
+        console.log(`'${modelId}' modeline tıklandı. Sahneye ekleniyor...`);
+
+        // Önceki modeli sil
+        const existingModel = marker.querySelector('.current-model');
+        if (existingModel) {
+          existingModel.remove();
+        }
+
+        const product = document.createElement('a-entity');
+        product.setAttribute('gltf-model', `#${modelId}`);
+        product.setAttribute('position', position);
+        product.setAttribute('scale', '0.1 0.1 0.1'); // Ölçek ayarı
+        product.setAttribute('class', 'current-model'); // Seçili modeli işaretle
+        
+        // Markera modeli ekle
+        marker.appendChild(product);
+        
+        // Kullanıcıya geri bildirim ver
+        infoMessage.style.display = 'block';
+        setTimeout(() => {
+            infoMessage.style.display = 'none';
+        }, 3000);
+      });
+    });
   </script>
 </body>
 </html>
