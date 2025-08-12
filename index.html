@@ -1,113 +1,325 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>A-Frame Test</title>
+  <meta charset="utf-8" />
+  <title>Cross-platform Markerless AR (Android + iOS)</title>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- ar-hit-test component (A-Frame wrapper for WebXR hit-test) -->
+  <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe-ar-hit-test-component/dist/aframe-ar-hit-test-component.min.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <style>
-    body { margin: 0; font-family: sans-serif; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; }
     #left-menu {
-      position: fixed;
-      left: 0;
-      top: 0;
-      width: 250px;
-      height: 100%;
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 15px;
-      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-      z-index: 1000;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease-in-out;
-      box-sizing: border-box;
-    }
-    #left-menu.is-open {
-        transform: translateX(0);
-    }
-    #left-menu h3 { margin-top: 0; }
-    #model-list {
-      list-style-type: none;
-      padding: 0;
-      max-height: calc(100% - 60px);
-      overflow-y: auto;
-    }
-    #model-list li {
-      padding: 10px;
-      background-color: #f0f0f0;
-      margin-bottom: 5px;
-      cursor: pointer;
-      border-radius: 5px;
-      text-align: center;
-      font-weight: bold;
-    }
-    #model-list li:hover {
-      background-color: #e0e0e0;
-    }
-    #menu-toggle {
-        position: fixed;
-        left: 15px;
-        top: 15px;
-        width: 40px;
-        height: 40px;
-        background-color: rgba(255, 255, 255, 0.8);
-        border: none;
-        cursor: pointer;
-        z-index: 1001;
-        font-size: 24px;
-        line-height: 40px;
-        text-align: center;
-        border-radius: 5px;
-    }
-    #ar-button {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      font-size: 18px;
-      font-weight: bold;
-      color: white;
-      background-color: #e74c3c;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
+      position: fixed; left: 0; top: 0; width: 260px; height: 100%;
+      background: rgba(255,255,255,0.95); padding: 16px; box-sizing: border-box;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.15); transform: translateX(-110%); transition: transform .28s ease;
       z-index: 2000;
     }
+    #left-menu.is-open { transform: translateX(0); }
+    #menu-toggle {
+      position: fixed; left: 16px; top: 16px; z-index: 2100; background: white; border: none;
+      width: 44px; height: 44px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 20px;
+    }
+    #model-list { list-style: none; padding: 0; margin: 8px 0 0 0; max-height: calc(100% - 80px); overflow:auto; }
+    #model-list li { padding: 10px 12px; margin-bottom: 8px; background:#f4f4f7; border-radius:8px; cursor:pointer; font-weight:600; text-align:center;}
+    #model-list li:hover { background:#ececec; }
+    #hint {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 2100;
+      background: rgba(0,0,0,0.6); color: white; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+      display: none;
+    }
+    /* Make a-scene fill screen */
+    a-scene { width:100%; height:100%; display:block; }
   </style>
 </head>
 <body>
 
-  <a-scene background="color: #616161">
-    <a-box position="0 1.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
-    <a-camera position="0 1.6 0"></a-camera>
+  <!-- A-Frame scene: WebXR attributes for hit-test -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    xr-mode-ui="enabled: false"
+    webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; domOverlay: {root: document.body}"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+  >
+    <a-assets>
+      <!-- Put your models in same folder or adjust paths -->
+      <a-asset-item id="chair-glb" src="./chair.glb"></a-asset-item>
+      <a-asset-item id="table-glb" src="./table.glb"></a-asset-item>
+      <a-asset-item id="lamp-glb" src="./lamp.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- Reticle for hit test (visible when hit) -->
+    <a-entity id="reticle"
+      geometry="primitive: ring; radiusInner: 0.06; radiusOuter: 0.08; segmentsTheta: 32"
+      material="color: #ffd54d; shader: flat; side: double"
+      rotation="-90 0 0"
+      visible="false"
+    ></a-entity>
+
+    <!-- Camera (no look-controls disabling so webxr camera works) -->
+    <a-camera id="camera" position="0 1.6 0">
+      <a-entity cursor="fuse: false; rayOrigin: mouse" raycaster="objects:.can-click"></a-entity>
+    </a-camera>
   </a-scene>
-  
-  <div id="left-menu">
+
+  <!-- UI -->
+  <div id="left-menu" aria-hidden="false">
     <h3>Ürünler</h3>
     <ul id="model-list">
-      <li data-model="chair-model">Sandalye</li>
-      <li data-model="table-model">Masa</li>
-      <li data-model="lamp-model">Lamba</li>
+      <!-- data-glb and data-usdz must point to actual files on server -->
+      <li data-glb="./chair.glb" data-usdz="./chair.usdz">Sandalye</li>
+      <li data-glb="./table.glb" data-usdz="./table.usdz">Masa</li>
+      <li data-glb="./lamp.glb" data-usdz="./lamp.usdz">Lamba</li>
     </ul>
+    <p style="font-size:13px;color:#666;margin-top:10px">iOS: Quick Look (USDZ). Android: WebXR (hit-test).</p>
   </div>
-  
-  <button id="menu-toggle">☰</button>
-  <button id="ar-button">AR'ı Başlat</button>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const menuToggle = document.getElementById('menu-toggle');
-      const leftMenu = document.getElementById('left-menu');
-      const arButton = document.getElementById('ar-button');
-      
-      menuToggle.addEventListener('click', () => {
-        leftMenu.classList.toggle('is-open');
-      });
+  <button id="menu-toggle" aria-label="Toggle menu">☰</button>
+  <div id="hint">Bir model seçin — iOS için Quick Look açılır, Android için yere dokunarak yerleştirin.</div>
 
-      // AR butonunun tıklama olayını dinle
-      arButton.addEventListener('click', () => {
-        console.log("AR'ı Başlat butonu tıklandı.");
-      });
+  <!-- Hidden Quick Look anchors (iOS uses <a rel="ar"> to open .usdz) -->
+  <div id="quicklook-links" style="display:none">
+    <!-- We'll create anchors dynamically per model; kept empty here -->
+  </div>
+
+<script>
+  // ---------- Platform detection ----------
+  function isIOS() {
+    // Detect iOS modern way
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isAndroid() {
+    return /Android/.test(navigator.userAgent);
+  }
+
+  // ---------- Gestures component (pinch to scale, drag to rotate) ----------
+  AFRAME.registerComponent('gestures-handler', {
+    schema: { minScale: {default:0.05}, maxScale: {default:3.0} },
+    init: function() {
+      this.handleTouchStart = this.handleTouchStart.bind(this);
+      this.handleTouchMove = this.handleTouchMove.bind(this);
+      this.handleTouchEnd = this.handleTouchEnd.bind(this);
+      this.el.addEventListener('touchstart', this.handleTouchStart);
+      this.el.addEventListener('touchmove', this.handleTouchMove);
+      this.el.addEventListener('touchend', this.handleTouchEnd);
+    },
+    handleTouchStart: function(e) {
+      if (e.touches.length === 2) {
+        const t0 = e.touches[0], t1 = e.touches[1];
+        this.startDist = Math.hypot(t1.pageX - t0.pageX, t1.pageY - t0.pageY);
+        this.startScale = this.el.object3D.scale.x;
+      } else if (e.touches.length === 1) {
+        this.startX = e.touches[0].pageX;
+      }
+    },
+    handleTouchMove: function(e) {
+      if (e.touches.length === 2 && this.startDist) {
+        const t0 = e.touches[0], t1 = e.touches[1];
+        const dist = Math.hypot(t1.pageX - t0.pageX, t1.pageY - t0.pageY);
+        const factor = dist / this.startDist;
+        let newScale = this.startScale * factor;
+        newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, newScale));
+        this.el.object3D.scale.set(newScale, newScale, newScale);
+      } else if (e.touches.length === 1 && typeof this.startX !== 'undefined') {
+        const dx = e.touches[0].pageX - this.startX;
+        this.el.object3D.rotation.y += dx * 0.005;
+        this.startX = e.touches[0].pageX;
+      }
+    },
+    handleTouchEnd: function(e) {
+      this.startDist = null;
+      this.startScale = null;
+      this.startX = undefined;
+    }
+  });
+
+  // ---------- Main app logic ----------
+  document.addEventListener('DOMContentLoaded', () => {
+    const scene = document.querySelector('a-scene');
+    const reticle = document.getElementById('reticle');
+    const modelList = document.getElementById('model-list');
+    const leftMenu = document.getElementById('left-menu');
+    const menuToggle = document.getElementById('menu-toggle');
+    const hint = document.getElementById('hint');
+    const quicklookContainer = document.getElementById('quicklook-links');
+
+    let selectedGLB = null;
+    let selectedUSDZ = null;
+
+    menuToggle.addEventListener('click', () => leftMenu.classList.toggle('is-open'));
+
+    // Create quicklook anchors for iOS (one per model)
+    document.querySelectorAll('#model-list li').forEach(li => {
+      const usdz = li.dataset.usdz;
+      if (usdz) {
+        const a = document.createElement('a');
+        a.setAttribute('rel','ar');
+        a.href = usdz;
+        // For Safari QuickLook, adding an <img> inside anchor is common; Quick Look opens directly from link click.
+        quicklookContainer.appendChild(a);
+        // store reference
+        li._quickLookAnchor = a;
+      }
     });
-  </script>
+
+    // Determine whether device supports WebXR immersive-ar
+    let supportsWebXR = false;
+    if (navigator.xr && navigator.xr.isSessionSupported) {
+      navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+        supportsWebXR = supported;
+        console.log('immersive-ar supported:', supported);
+      }).catch(err => {
+        console.warn('isSessionSupported error:', err);
+      });
+    }
+
+    // Listen hit-test events from ar-hit-test component
+    // The ar-hit-test component emits 'ar-hit-test' with detail.results (varies by version) or 'ar-hit-test-result'
+    scene.addEventListener('ar-hit-test', (ev) => {
+      // ev.detail.results likely present when using that component
+      const results = ev.detail && ev.detail.results ? ev.detail.results : [];
+      if (results.length > 0) {
+        const pose = results[0].transform || results[0].pose || results[0];
+        // different wrapper implementations: try to set position defensively
+        try {
+          const pos = pose.position || (pose && pose.translation) || null;
+          if (pos) {
+            reticle.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+            reticle.setAttribute('visible', 'true');
+          } else if (pose.point) {
+            const p = pose.point;
+            reticle.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+            reticle.setAttribute('visible', 'true');
+          }
+        } catch(e) { console.warn(e); }
+      } else {
+        reticle.setAttribute('visible', 'false');
+      }
+    });
+
+    // fallback listener names:
+    scene.addEventListener('ar-hit-test-result', (e) => {
+      if (!e.detail) return;
+      const inter = e.detail.intersection || e.detail.hit || e.detail;
+      if (inter && inter.point) {
+        const p = inter.point;
+        reticle.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+        reticle.setAttribute('visible', 'true');
+      } else {
+        reticle.setAttribute('visible', 'false');
+      }
+    });
+
+    // Model selection handler
+    modelList.addEventListener('click', (ev) => {
+      const li = ev.target.closest('li');
+      if (!li) return;
+      selectedGLB = li.dataset.glb;
+      selectedUSDZ = li.dataset.usdz;
+      leftMenu.classList.remove('is-open');
+
+      // iOS flow: quick look
+      if (isIOS() && selectedUSDZ) {
+        // show hint briefly for iOS
+        hint.style.display = 'block';
+        hint.innerText = 'iOS: Quick Look açılıyor...';
+        setTimeout(()=> hint.style.display='none', 2200);
+
+        // click the created anchor to invoke Quick Look (.usdz)
+        if (li._quickLookAnchor) {
+          // Add an <img> as recommended for Quick Look (it is optional but more reliable)
+          if (!li._quickLookAnchor.querySelector('img')) {
+            const img = document.createElement('img');
+            img.src = './thumbnail.png'; // optional: you can set a thumbnail or small transparent image
+            img.style.width = '1px'; img.style.height = '1px'; img.style.opacity = '0';
+            li._quickLookAnchor.appendChild(img);
+          }
+          // Trigger the click (user gesture simulated by click handler on li qualifies)
+          li._quickLookAnchor.click();
+        } else {
+          alert('USDZ dosyası bulunamadı. Sunucuda doğru isimde .usdz dosyası olduğundan emin olun.');
+        }
+        return;
+      }
+
+      // Android / WebXR flow: instruct user and start AR if supported
+      if (isAndroid() && supportsWebXR) {
+        hint.style.display = 'block';
+        hint.innerText = 'Android: AR başlatılıyor. Cihaz izin isteyebilir.';
+        // Try to enter AR using A-Frame helper. Some A-Frame versions provide scene.enterAR()
+        try {
+          // Try A-Frame helper first
+          if (scene.enterAR) {
+            scene.enterAR(); // may open WebXR AR session
+            setTimeout(()=> hint.style.display='none', 2200);
+          } else {
+            // fallback: request session directly — many browsers already handle through A-Frame internally
+            navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test', 'local-floor'] })
+              .then(session => {
+                // If using A-Frame, setting session directly is complex; many devices will instead show an "AR" button
+                // We'll just hide hint after session created
+                hint.style.display='none';
+                session.end(); // we only check capability; A-Frame will handle entering AR on its own in many setups
+              }).catch(err => {
+                hint.innerText = 'AR başlatılamadı: ' + (err && err.message || err);
+                setTimeout(()=> hint.style.display='none', 3000);
+              });
+          }
+        } catch (err) {
+          console.warn('enterAR error', err);
+          hint.innerText = 'AR başlatılamadı. Lütfen Chrome kullanın ve HTTPS üzerinden test edin.';
+          setTimeout(()=> hint.style.display='none', 3500);
+        }
+        return;
+      }
+
+      // Desktop or unknown: show message
+      alert('Bu cihazda yerel AR desteklenmiyor. iOS için .usdz, Android için WebXR (Chrome) kullanın.');
+    });
+
+    // Place model on scene click when reticle visible (Android/WebXR)
+    scene.addEventListener('click', (ev) => {
+      // Only place for non-iOS flows (we already opened QuickLook for iOS selection)
+      if (isIOS()) return;
+
+      if (!selectedGLB) {
+        // nothing selected
+        return;
+      }
+      // reticle must be visible and positioned
+      if (reticle.getAttribute('visible') !== true && reticle.getAttribute('visible') !== 'true') return;
+
+      // get position from reticle
+      const pos = reticle.getAttribute('position');
+      // create entity
+      const ent = document.createElement('a-entity');
+      ent.setAttribute('gltf-model', selectedGLB.startsWith('#') ? selectedGLB : selectedGLB);
+      ent.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+      ent.setAttribute('scale', '0.6 0.6 0.6'); // adjust default scale
+      ent.setAttribute('gestures-handler', '');
+      ent.setAttribute('class', 'can-click');
+      scene.appendChild(ent);
+    });
+
+    // small helper: show initial hint depending on platform
+    if (isIOS()) {
+      hint.style.display = 'block';
+      hint.innerText = 'iOS cihaz algılandı — model seçince Quick Look (USDX) açılır.';
+      setTimeout(()=> hint.style.display='none', 3000);
+    } else if (isAndroid()) {
+      hint.style.display = 'block';
+      hint.innerText = 'Android cihaz algılandı — model seçip AR modunu başlatın.';
+      setTimeout(()=> hint.style.display='none', 3000);
+    } else {
+      hint.style.display = 'block';
+      hint.innerText = 'Destekli cihaz: Android Chrome (WebXR) veya iOS Safari (Quick Look).';
+      setTimeout(()=> hint.style.display='none', 3500);
+    }
+  });
+</script>
 </body>
 </html>
