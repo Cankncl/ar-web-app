@@ -71,7 +71,7 @@
       border-radius: 5px;
       cursor: pointer;
       z-index: 2000;
-      display: block; /* Buton artık her zaman görünür olacak */
+      display: none; /* İlk başta gizli olacak, destek varsa görünecek */
     }
   </style>
 </head>
@@ -177,11 +177,26 @@
         leftMenu.classList.toggle('is-open');
       });
       
+      // Sayfa yüklendiğinde WebXR desteğini kontrol et
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-ar').then((isSupported) => {
+          if (isSupported) {
+            arButton.style.display = 'block';
+          }
+        });
+      }
+
       // AR butonuna tıklandığında oturumu başlat
       arButton.addEventListener('click', () => {
+        console.log("AR butonu tıklandı. AR oturumu başlatılıyor...");
         if (!scene.is('ar-mode')) {
-          scene.enterAR();
-          arButton.style.display = 'none';
+          try {
+            scene.enterAR();
+            arButton.style.display = 'none';
+          } catch (e) {
+            console.error("AR oturumu başlatılamadı:", e);
+            alert("AR oturumu başlatılamadı. Cihazınızın WebXR'ı desteklediğinden emin olun ve tarayıcı ayarlarınızı kontrol edin.");
+          }
         }
       });
 
