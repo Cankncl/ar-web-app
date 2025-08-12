@@ -12,12 +12,21 @@
         width: 100vw;
     }
     #left-menu {
+        position: fixed;
+        left: 0;
+        top: 0;
         width: 250px;
+        height: 100%;
         padding: 15px;
         background-color: rgba(255, 255, 255, 0.85);
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
         z-index: 1000;
         overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+    }
+    #left-menu.is-open {
+        transform: translateX(0);
     }
     #left-menu h3 { margin-top: 0; }
     #model-list { list-style-type: none; padding: 0; }
@@ -34,8 +43,24 @@
     #model-list li.selected, #model-list li:hover {
         background-color: #e0e0e0;
     }
+    #menu-toggle {
+        position: fixed;
+        left: 15px;
+        top: 15px;
+        width: 40px;
+        height: 40px;
+        background-color: rgba(255, 255, 255, 0.85);
+        border: none;
+        cursor: pointer;
+        z-index: 1001;
+        font-size: 24px;
+        line-height: 40px;
+        text-align: center;
+        border-radius: 5px;
+    }
     #preview-container {
-        flex-grow: 1;
+        width: 100%;
+        height: 100%;
         position: relative;
     }
     #ar-button-container {
@@ -54,7 +79,7 @@
         border: none;
         border-radius: 8px;
         cursor: pointer;
-        display: none; /* Model seçilene kadar gizli */
+        display: none;
     }
   </style>
 </head>
@@ -64,9 +89,9 @@
     <div id="left-menu">
       <h3>Modeller</h3>
       <ul id="model-list">
-        <li data-model="chair-model">Sandalye</li>
-        <li data-model="table-model">Masa</li>
-        <li data-model="lamp-model">Lamba</li>
+        <li data-model="chair-model" data-glb="./chair.glb" data-usdz="./chair.usdz">Sandalye</li>
+        <li data-model="table-model" data-glb="./table.glb" data-usdz="./table.usdz">Masa</li>
+        <li data-model="lamp-model" data-glb="./lamp.glb" data-usdz="./lamp.usdz">Lamba</li>
       </ul>
     </div>
 
@@ -103,6 +128,8 @@
         <button id="ar-button" disabled>AR'a Ekle</button>
       </div>
     </div>
+    
+    <button id="menu-toggle">☰</button>
   </div>
 
   <script>
@@ -142,36 +169,46 @@
       }
     });
 
+    // Cihazın iOS olup olmadığını kontrol et
+    const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     document.addEventListener('DOMContentLoaded', () => {
       const scene = document.getElementById('main-scene');
       const modelList = document.getElementById('model-list');
       const arButton = document.getElementById('ar-button');
       const reticle = document.getElementById('reticle');
+      const menuToggle = document.getElementById('menu-toggle');
+      const leftMenu = document.getElementById('left-menu');
 
       let currentPreviewModel = null;
-      let selectedModelId = null;
+      let selectedModel = null;
+
+      menuToggle.addEventListener('click', () => {
+        leftMenu.classList.toggle('is-open');
+      });
 
       // Model seçimi
       modelList.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
         if (!listItem) return;
         
-        // Seçili modeli işaretle
         const allItems = modelList.querySelectorAll('li');
         allItems.forEach(item => item.classList.remove('selected'));
         listItem.classList.add('selected');
         
-        selectedModelId = listItem.dataset.model;
+        selectedModel = {
+            id: listItem.dataset.model,
+            glb: listItem.dataset.glb,
+            usdz: listItem.dataset.usdz
+        };
         
-        // Önceki önizleme modelini kaldır
         if (currentPreviewModel) {
           scene.removeChild(currentPreviewModel);
           currentPreviewModel = null;
         }
         
-        // Yeni modeli önizleme için ekle
         currentPreviewModel = document.createElement('a-entity');
-        currentPreviewModel.setAttribute('gltf-model', `#${selectedModelId}`);
+        currentPreviewModel.setAttribute('gltf-model', `#${selectedModel.id}`);
         currentPreviewModel.setAttribute('position', '0 1 -2.5');
         currentPreviewModel.setAttribute('scale', '1 1 1');
         currentPreviewModel.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 10000;');
@@ -179,43 +216,58 @@
 
         arButton.style.display = 'block';
         arButton.disabled = false;
-        console.log("Model seçildi ve önizleme ekranda.");
+        
+        // Buton metnini cihaza göre ayarla
+        arButton.textContent = isIOS() ? "Quick Look ile Görüntüle" : "AR'a Ekle";
+
+        leftMenu.classList.remove('is-open');
+        console.log("Model seçildi:", selectedModel);
       });
 
       // AR'a geçiş butonu
       arButton.addEventListener('click', async () => {
-        if (!selectedModelId) {
+        if (!selectedModel) {
           alert("Lütfen önce bir model seçin.");
           return;
         }
         
+        if (isIOS()) {
+            if (!selectedModel.usdz) {
+                alert("Seçilen model için USDZ dosyası bulunamadı.");
+                return;
+            }
+            // iOS Quick Look için link oluşturup tıkla
+            const a = document.createElement('a');
+            a.setAttribute('rel', 'ar');
+            a.setAttribute('href', selectedModel.usdz);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            console.log("iOS Quick Look başlatıldı.");
+            return;
+        }
+
+        // Android (WebXR) için
         try {
           console.log("AR oturumu başlatılıyor...");
           
-          // Önizleme modelini kaldır
           if (currentPreviewModel) {
             scene.removeChild(currentPreviewModel);
             currentPreviewModel = null;
           }
-
-          // A-Frame'in AR'a geçiş yapmasını sağlayan bileşeni ekle
-          scene.setAttribute('ar-hit-test', 'target: #reticle;');
-
+          
           await scene.enterAR();
 
-          // AR modunda kamera açıldıktan sonraki işlemler
           console.log("AR oturumu başarıyla başlatıldı.");
           
-          // AR'a ekle butonu gizlenir
           arButton.style.display = 'none';
 
-          // Dokunma ile model yerleştirme
           scene.addEventListener('click', (event) => {
-            if (!selectedModelId || !reticle.getAttribute('visible')) return;
+            if (!selectedModel || !reticle.getAttribute('visible')) return;
             
             const position = reticle.getAttribute('position');
             const product = document.createElement('a-entity');
-            product.setAttribute('gltf-model', `#${selectedModelId}`);
+            product.setAttribute('gltf-model', `#${selectedModel.id}`);
             product.setAttribute('position', position);
             product.setAttribute('scale', '0.5 0.5 0.5');
             product.setAttribute('gestures-handler', '');
@@ -228,15 +280,19 @@
         }
       });
       
-      // AR hit-test sonuçları
+      // AR hit-test sonuçları sadece Android'de çalışacak
       scene.addEventListener('ar-hit-test-results', (event) => {
-        const hitTestResults = event.detail.results;
-        if (hitTestResults.length > 0) {
-          const hit = hitTestResults[0];
-          reticle.setAttribute('position', hit.position);
-          reticle.setAttribute('visible', 'true');
+        if (scene.is('ar-mode')) {
+            const hitTestResults = event.detail.results;
+            if (hitTestResults.length > 0) {
+              const hit = hitTestResults[0];
+              reticle.setAttribute('position', hit.position);
+              reticle.setAttribute('visible', 'true');
+            } else {
+              reticle.setAttribute('visible', 'false');
+            }
         } else {
-          reticle.setAttribute('visible', 'false');
+            reticle.setAttribute('visible', 'false');
         }
       });
     });
