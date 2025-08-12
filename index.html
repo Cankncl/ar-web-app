@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Dinamik AR Ürün Uygulaması</title>
+  <title>AR Çoklu Ürün Uygulaması</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
@@ -20,9 +20,6 @@
       overflow-y: auto;
     }
     #left-menu h3 { margin-top: 0; }
-    #upload-section {
-      margin-bottom: 20px;
-    }
     #model-list {
       list-style-type: none;
       padding: 0;
@@ -33,21 +30,11 @@
       margin-bottom: 5px;
       cursor: pointer;
       border-radius: 5px;
+      text-align: center;
+      font-weight: bold;
     }
     #model-list li:hover {
       background-color: #e0e0e0;
-    }
-    .ar-product-actions {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 999;
-        display: flex;
-        gap: 10px;
-    }
-    .ar-product-actions button {
-        padding: 10px 20px;
     }
   </style>
 </head>
@@ -55,66 +42,39 @@
 
   <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
     <a-assets>
+      <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
+      <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
+      <a-asset-item id="lamp-model" src="./lamp.glb"></a-asset-item>
       </a-assets>
-    <a-marker-camera type='pattern' preset='hiro'></a-marker-camera>
+    <a-marker-camera type='pattern' preset='hiro'>
+    </a-marker-camera>
   </a-scene>
 
   <div id="left-menu">
-    <h3>Modeller</h3>
-    <div id="upload-section">
-      <input type="file" id="file-input" accept=".glb, .gltf">
-    </div>
+    <h3>Ürünler</h3>
     <ul id="model-list">
+      <li onclick="addModelToScene('chair-model', '0 0.5 0')">Sandalye</li>
+      <li onclick="addModelToScene('table-model', '0 0 0')">Masa</li>
+      <li onclick="addModelToScene('lamp-model', '0 1 0')">Lamba</li>
       </ul>
   </div>
 
   <script>
-    const fileInput = document.getElementById('file-input');
-    const modelList = document.getElementById('model-list');
-    const assets = document.querySelector('a-assets');
     const marker = document.querySelector('a-marker-camera');
-    let loadedModels = {}; // Yüklenen modelleri tutmak için bir obje
-    let modelCounter = 0;
-
-    fileInput.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        const modelId = `model-${modelCounter}`;
-        
-        // A-Frame için bir asset elementi oluştur
-        const assetItem = document.createElement('a-asset-item');
-        assetItem.setAttribute('id', modelId);
-        assetItem.setAttribute('src', url);
-        assets.appendChild(assetItem);
-
-        // Model listesine ekle
-        const listItem = document.createElement('li');
-        listItem.textContent = file.name;
-        listItem.dataset.modelId = modelId;
-        listItem.addEventListener('click', () => {
-          // Bu modeli AR sahnesine ekle
-          addModelToScene(modelId);
-        });
-        modelList.appendChild(listItem);
-
-        modelCounter++;
-      }
-    });
-
-    function addModelToScene(modelId) {
+    
+    function addModelToScene(modelId, position) {
       // Önceki modeli sil
-      const existingModel = document.querySelector('.current-model');
+      const existingModel = marker.querySelector('.current-model');
       if (existingModel) {
         existingModel.remove();
       }
 
       const product = document.createElement('a-entity');
       product.setAttribute('gltf-model', `#${modelId}`);
-      product.setAttribute('position', '0 0 0'); // Başlangıç pozisyonu
+      product.setAttribute('position', position);
       product.setAttribute('scale', '0.1 0.1 0.1'); // Ölçek ayarı
       product.setAttribute('class', 'current-model'); // Seçili modeli işaretle
-
+      
       // Markera modeli ekle
       marker.appendChild(product);
     }
