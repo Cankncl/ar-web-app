@@ -65,7 +65,7 @@
     }
     #ar-button-container {
         position: absolute;
-        bottom: 20px;
+        bottom: 50px; /* Butonu biraz yukarı çıkardım */
         left: 50%;
         transform: translateX(-50%);
         z-index: 2000;
@@ -89,9 +89,9 @@
     <div id="left-menu">
       <h3>Modeller</h3>
       <ul id="model-list">
-        <li data-model="chair-model" data-glb="./chair.glb" data-usdz="./chair.usdz">Sandalye</li>
-        <li data-model="table-model" data-glb="./table.glb" data-usdz="./table.usdz">Masa</li>
-        <li data-model="lamp-model" data-glb="./lamp.glb" data-usdz="./lamp.usdz">Lamba</li>
+        <li data-model="chair-model" data-glb="./models/chair.glb" data-usdz="./models/chair.usdz">Sandalye</li>
+        <li data-model="table-model" data-glb="./models/table.glb" data-usdz="./models/table.usdz">Masa</li>
+        <li data-model="lamp-model" data-glb="./models/lamp.glb" data-usdz="./models/lamp.usdz">Lamba</li>
       </ul>
     </div>
 
@@ -104,9 +104,9 @@
         ar-mode-ui="enabled: false">
         
         <a-assets>
-          <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
-          <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
-          <a-asset-item id="lamp-model" src="./lamp.glb"></a-asset-item>
+          <a-asset-item id="chair-model" src="./models/chair.glb"></a-asset-item>
+          <a-asset-item id="table-model" src="./models/table.glb"></a-asset-item>
+          <a-asset-item id="lamp-model" src="./models/lamp.glb"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 1.6 4" rotation="0 0 0" wasd-controls="enabled: false">
@@ -169,7 +169,6 @@
       }
     });
 
-    // Cihazın iOS olup olmadığını kontrol et
     const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -217,11 +216,10 @@
         arButton.style.display = 'block';
         arButton.disabled = false;
         
-        // Buton metnini cihaza göre ayarla
         arButton.textContent = isIOS() ? "Quick Look ile Görüntüle" : "AR'a Ekle";
 
         leftMenu.classList.remove('is-open');
-        console.log("Model seçildi:", selectedModel);
+        console.log("Model seçildi ve önizleme ekranda:", selectedModel);
       });
 
       // AR'a geçiş butonu
@@ -231,15 +229,21 @@
           return;
         }
         
+        // Önizleme modelini kaldır
+        if (currentPreviewModel) {
+          scene.removeChild(currentPreviewModel);
+          currentPreviewModel = null;
+        }
+        
         if (isIOS()) {
             if (!selectedModel.usdz) {
                 alert("Seçilen model için USDZ dosyası bulunamadı.");
                 return;
             }
-            // iOS Quick Look için link oluşturup tıkla
             const a = document.createElement('a');
             a.setAttribute('rel', 'ar');
             a.setAttribute('href', selectedModel.usdz);
+            a.setAttribute('style', 'display: none;'); // Görünmez yapıldı
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -250,12 +254,6 @@
         // Android (WebXR) için
         try {
           console.log("AR oturumu başlatılıyor...");
-          
-          if (currentPreviewModel) {
-            scene.removeChild(currentPreviewModel);
-            currentPreviewModel = null;
-          }
-          
           await scene.enterAR();
 
           console.log("AR oturumu başarıyla başlatıldı.");
@@ -280,7 +278,7 @@
         }
       });
       
-      // AR hit-test sonuçları sadece Android'de çalışacak
+      // AR hit-test sonuçları sadece AR modunda çalışacak
       scene.addEventListener('ar-hit-test-results', (event) => {
         if (scene.is('ar-mode')) {
             const hitTestResults = event.detail.results;
