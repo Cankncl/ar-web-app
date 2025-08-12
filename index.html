@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>AR Uygulaması</title>
+  <title>AR Çoklu Model Uygulaması</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
@@ -152,7 +152,6 @@
       const marker = document.querySelector('a-marker-camera');
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
-      let currentModel = null;
       
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
@@ -164,19 +163,13 @@
 
         const modelId = listItem.dataset.model;
         
-        if (currentModel) {
-          currentModel.remove();
-        }
-
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelId}`);
-        product.setAttribute('position', '0 0.2 0');
+        product.setAttribute('position', '0 0.2 0'); // Her model aynı başlangıç konumunda oluşturulur
         product.setAttribute('scale', '0.5 0.5 0.5');
-        product.setAttribute('class', 'current-model');
         product.setAttribute('gestures-handler', '');
         
         marker.appendChild(product);
-        currentModel = product;
         
         leftMenu.classList.remove('is-open');
         console.log(`'${modelId}' modeli sahneye eklendi. Şimdi parmak hareketleri ile kontrol edebilirsiniz.`);
