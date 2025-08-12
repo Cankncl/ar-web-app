@@ -17,7 +17,6 @@
       padding: 15px;
       box-shadow: 2px 0 5px rgba(0,0,0,0.2);
       z-index: 1000;
-      overflow-y: auto;
       transform: translateX(-100%);
       transition: transform 0.3s ease-in-out;
     }
@@ -60,7 +59,7 @@
 </head>
 <body style='margin : 0px; overflow: hidden;'>
 
-  <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
+  <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; smooth: true; smooth-factor: 0.5;'>
     <a-assets>
       <a-asset-item id="chair-model" src="./chair.glb"></a-asset-item>
       <a-asset-item id="table-model" src="./table.glb"></a-asset-item>
@@ -88,29 +87,26 @@
         maxScale: {default: 2.0}
       },
       init: function () {
-        this.handleTouchMove = this.handleTouchMove.bind(this);
-        this.handleTouchEnd = this.handleTouchEnd.bind(this);
-
         this.el.addEventListener('touchstart', this.handleTouchStart.bind(this));
       },
 
       handleTouchStart: function (event) {
         if (event.touches.length === 2) {
           this.initialPinchDistance = this.getDistance(event.touches[0], event.touches[1]);
-          window.addEventListener('touchmove', this.handlePinch.bind(this));
+          this.el.addEventListener('touchmove', this.handlePinch.bind(this));
         } else if (event.touches.length === 1) {
           this.lastX = event.touches[0].pageX;
           this.lastY = event.touches[0].pageY;
-          window.addEventListener('touchmove', this.handleMove.bind(this));
+          this.el.addEventListener('touchmove', this.handleMove.bind(this));
         }
-        window.addEventListener('touchend', this.handleTouchEnd);
+        this.el.addEventListener('touchend', this.handleTouchEnd.bind(this));
       },
 
       handleTouchEnd: function () {
         this.initialPinchDistance = null;
-        window.removeEventListener('touchmove', this.handlePinch);
-        window.removeEventListener('touchmove', this.handleMove);
-        window.removeEventListener('touchend', this.handleTouchEnd);
+        this.el.removeEventListener('touchmove', this.handlePinch);
+        this.el.removeEventListener('touchmove', this.handleMove);
+        this.el.removeEventListener('touchend', this.handleTouchEnd);
       },
 
       handlePinch: function (event) {
@@ -152,7 +148,8 @@
       const marker = document.querySelector('a-marker-camera');
       const menuToggle = document.getElementById('menu-toggle');
       const leftMenu = document.getElementById('left-menu');
-      
+      let modelsAdded = 0;
+
       menuToggle.addEventListener('click', () => {
         leftMenu.classList.toggle('is-open');
       });
@@ -165,14 +162,18 @@
         
         const product = document.createElement('a-entity');
         product.setAttribute('gltf-model', `#${modelId}`);
-        product.setAttribute('position', '0 0.2 0'); // Her model aynı başlangıç konumunda oluşturulur
+        
+        const offset = (modelsAdded % 3) * 0.5;
+        product.setAttribute('position', `${offset} 0.2 0`); 
+        
         product.setAttribute('scale', '0.5 0.5 0.5');
         product.setAttribute('gestures-handler', '');
         
         marker.appendChild(product);
+        modelsAdded++;
         
         leftMenu.classList.remove('is-open');
-        console.log(`'${modelId}' modeli sahneye eklendi. Şimdi parmak hareketleri ile kontrol edebilirsiniz.`);
+        console.log(`'${modelId}' modeli sahneye eklendi.`);
       });
     });
   </script>
