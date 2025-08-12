@@ -1,152 +1,68 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8"/>
-  <title>Multi-select AR + 3D Preview (Android + iOS)</title>
+  <meta charset="utf-8" />
+  <title>Multi-select AR — Debug & Stabilized</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- ar-hit-test component (A-Frame wrapper) -->
+  <!-- ar-hit-test component (A-Frame wrapper for WebXR hit-test) -->
   <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe-ar-hit-test-component/dist/aframe-ar-hit-test-component.min.js"></script>
-  <!-- model-viewer for 3D previews -->
+  <!-- model-viewer for thumbnails -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <style>
-    :root { --accent:#ff6f3c; --muted:#f4f4f7; }
-    html,body { height:100%; margin:0; font-family: Inter, Roboto, system-ui, -apple-system; background:#fff; }
-    /* Layout */
-    .app {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      height:100vh;
-      gap:0;
-    }
-
-    /* Left panel: model previews */
-    .panel {
-      padding:16px;
-      box-sizing:border-box;
-      border-right:1px solid #eee;
-      background: #fafafa;
-      overflow:auto;
-    }
-    .panel h2 { margin:4px 0 12px 0; font-size:18px; }
-    .grid {
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:12px;
-    }
-    .preview {
-      border-radius:12px;
-      padding:8px;
-      background:var(--muted);
-      cursor:pointer;
-      user-select:none;
-      transition: box-shadow .15s, transform .12s;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .preview.selected {
-      outline: 3px solid rgba(255,111,60,0.18);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-      transform: translateY(-3px);
-    }
-    .preview .meta { flex:1; }
-    .preview h3 { margin:0; font-size:15px; }
-    .preview p { margin:4px 0 0 0; color:#666; font-size:13px; }
-
-    model-viewer { width:120px; height:90px; border-radius:8px; background:#fff; }
-
-    /* Right area: A-Frame scene */
-    .scene-wrap { position:relative; width:100%; height:100%; }
+    html,body { height:100%; margin:0; font-family: Inter, Roboto, system-ui; }
+    .layout { display:flex; height:100vh; }
+    .panel { width:320px; padding:14px; box-sizing:border-box; border-right:1px solid #eee; background:#fafafa; overflow:auto; }
+    .preview { display:flex; gap:12px; align-items:center; padding:8px; border-radius:10px; background:#fff; margin-bottom:10px; cursor:pointer; }
+    .preview.selected { outline:3px solid rgba(255,111,60,0.18); transform: translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,0.06); }
+    model-viewer { width:110px; height:80px; border-radius:10px; background:#f7f7f7; }
+    .scene { flex:1; position:relative; }
     a-scene { width:100%; height:100%; display:block; }
-
-    /* Controls */
-    .controls {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 18px;
-      z-index:2200;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .btn {
-      background:var(--accent);
-      color:white;
-      border:none;
-      padding:10px 14px;
-      border-radius:10px;
-      font-weight:600;
-      cursor:pointer;
-      box-shadow:0 4px 12px rgba(0,0,0,0.12);
-    }
+    .controls { position:absolute; left:50%; transform:translateX(-50%); bottom:18px; display:flex; gap:8px; z-index:2100; }
+    .btn { padding:10px 14px; border-radius:10px; border:none; color:white; background:#ff6f3c; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.12); }
     .btn.secondary { background:#444; }
-    .hint {
-      background: rgba(0,0,0,0.6);
-      color:#fff;
-      padding:8px 12px;
-      border-radius:10px;
-      font-size:14px;
-      display:none;
-    }
-
-    /* Small screen adjustments */
-    @media (max-width:900px) {
-      .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-      .panel { display:flex; gap:12px; overflow-x:auto; padding:12px; }
-      .grid { display:flex; gap:10px; }
-      model-viewer { width:140px; height:110px; }
-      .controls { left: 50%; }
-    }
+    .hint { background:rgba(0,0,0,0.6); color:white; padding:8px 10px; border-radius:10px; display:none; font-size:14px; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <!-- Left: previews and selection -->
+  <div class="layout">
     <aside class="panel">
-      <h2>Modeller (tıkla seç/çıkart)</h2>
-      <div class="grid" id="previews">
-        <!--
-          Her preview elemanına data-glb ve data-usdz ekle.
-          Örnek: data-glb="models/chair.glb" data-usdz="models/chair.usdz"
-        -->
-        <div class="preview" data-name="Sandalye" data-glb="./models/chair.glb" data-usdz="./models/chair.usdz" tabindex="0">
-          <model-viewer src="./models/chair.glb" alt="Sandalye" camera-controls disable-zoom auto-rotate exposure="1"></model-viewer>
-          <div class="meta">
-            <h3>Sandalye</h3>
-            <p>Boyut: orta • Format: glb/usdz</p>
-          </div>
-        </div>
+      <h3>Modeller (tıkla seç/çıkart)</h3>
 
-        <div class="preview" data-name="Masa" data-glb="./models/table.glb" data-usdz="./models/table.usdz" tabindex="0">
-          <model-viewer src="./models/table.glb" alt="Masa" camera-controls disable-zoom auto-rotate exposure="1"></model-viewer>
-          <div class="meta">
-            <h3>Masa</h3>
-            <p>Boyut: büyük • Format: glb/usdz</p>
-          </div>
+      <div class="preview" data-name="Sandalye" data-glb="./models/chair.glb" data-usdz="./models/chair.usdz" tabindex="0">
+        <model-viewer src="./models/chair.glb" alt="Sandalye" camera-controls auto-rotate></model-viewer>
+        <div>
+          <strong>Sandalye</strong>
+          <div style="font-size:13px;color:#666;margin-top:6px">GLB / USDZ</div>
         </div>
-
-        <div class="preview" data-name="Lamba" data-glb="./models/lamp.glb" data-usdz="./models/lamp.usdz" tabindex="0">
-          <model-viewer src="./models/lamp.glb" alt="Lamba" camera-controls disable-zoom auto-rotate exposure="1"></model-viewer>
-          <div class="meta">
-            <h3>Lamba</h3>
-            <p>Boyut: küçük • Format: glb/usdz</p>
-          </div>
-        </div>
-
       </div>
 
-      <hr style="margin:14px 0;border:none;border-top:1px solid #eee;">
-      <p style="font-size:13px; color:#666;">iOS: Quick Look (USDZ). Eğer seçili birden fazla modelin tek bir Quick Look sahnesinde görünmesini istiyorsan sunucuda birleşik bir <code>scene.usdz</code> dosyası sağlamalısın. Android: WebXR destekli tarayıcı ile rahatça çoklu model yerleştirme yapabilirsin.</p>
+      <div class="preview" data-name="Masa" data-glb="./models/table.glb" data-usdz="./models/table.usdz" tabindex="0">
+        <model-viewer src="./models/table.glb" alt="Masa" camera-controls auto-rotate></model-viewer>
+        <div>
+          <strong>Masa</strong>
+          <div style="font-size:13px;color:#666;margin-top:6px">GLB / USDZ</div>
+        </div>
+      </div>
+
+      <div class="preview" data-name="Lamba" data-glb="./models/lamp.glb" data-usdz="./models/lamp.usdz" tabindex="0">
+        <model-viewer src="./models/lamp.glb" alt="Lamba" camera-controls auto-rotate></model-viewer>
+        <div>
+          <strong>Lamba</strong>
+          <div style="font-size:13px;color:#666;margin-top:6px">GLB / USDZ</div>
+        </div>
+      </div>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid #eee;">
+      <p style="font-size:13px;color:#666">Not: Büyük modeller cihazı zorlayabilir. iOS için çoklu model tek sahne istiyorsan sunucuda birleşik <code>scene.usdz</code> oluştur.</p>
     </aside>
 
-    <!-- Right: AR scene -->
-    <main class="scene-wrap">
+    <main class="scene">
       <a-scene
+        id="aframe-scene"
         embedded
         vr-mode-ui="enabled: false"
         xr-mode-ui="enabled: false"
@@ -154,122 +70,110 @@
         renderer="colorManagement: true; physicallyCorrectLights: true"
         ar-hit-test="target: #reticle">
         
-        <a-assets>
-          <!-- asset-item'ları dinamik olarak model eklediğimizde kullanmıyoruz (yerleştirme sırasında URL kullanacağız) -->
-        </a-assets>
-
-        <!-- Reticle (hit-test hedefi) -->
         <a-entity id="reticle"
-          geometry="primitive: ring; radiusInner: 0.05; radiusOuter: 0.07; segmentsTheta: 32"
-          material="color: #ffd54d; shader: flat; side: double"
+          geometry="primitive:ring; radiusInner:0.05; radiusOuter:0.07; segmentsTheta:32"
+          material="shader:flat; color:#ffd54d"
           rotation="-90 0 0"
           visible="false"></a-entity>
 
-        <!-- Kamera -->
         <a-camera position="0 1.6 0">
-          <a-entity cursor="fuse: false" raycaster="objects:.can-click"></a-entity>
+          <a-entity cursor="fuse:false" raycaster="objects:.can-click"></a-entity>
         </a-camera>
       </a-scene>
 
-      <!-- Controls -->
       <div class="controls" role="group" aria-label="AR controls">
-        <button class="btn" id="start-ar">AR Başlat / Yerleştir</button>
-        <button class="btn secondary" id="clear-scene">Kaldır</button>
-        <div class="hint" id="hint">Reticle görünür olunca ekrana dokunarak seçili modelleri yerleştirin.</div>
+        <button class="btn" id="start-ar" disabled>Model seçin</button>
+        <button class="btn secondary" id="clear" title="Sahnedekileri temizle">Kaldır</button>
+        <div class="hint" id="hint">Reticle görünür olunca yere dokunarak yerleştirin.</div>
       </div>
     </main>
   </div>
 
 <script>
-  // ---------- Util: platform detection ----------
+  // --------- util ---------
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isAndroid = () => /Android/.test(navigator.userAgent);
 
-  // ---------- Gestures component (pinch scale + single touch rotate) ----------
+  // --------- gestures component (küçük) -----
   AFRAME.registerComponent('gestures-handler', {
     schema: { minScale: {default: 0.05}, maxScale: {default: 3} },
     init() {
-      this.startDist = null;
-      this.startScale = null;
-      this.startX = null;
-      this.handleTouchStart = this.handleTouchStart.bind(this);
-      this.handleTouchMove = this.handleTouchMove.bind(this);
-      this.handleTouchEnd = this.handleTouchEnd.bind(this);
-      this.el.addEventListener('touchstart', this.handleTouchStart);
-      this.el.addEventListener('touchmove', this.handleTouchMove);
-      this.el.addEventListener('touchend', this.handleTouchEnd);
+      this.handle = this.handle.bind(this);
+      this.el.addEventListener('touchstart', this.handle);
+      this.el.addEventListener('touchmove', this.handle);
+      this.el.addEventListener('touchend', this.handle);
+      this.startDist = null; this.startScale = null; this.startX = null;
     },
-    handleTouchStart(e) {
-      if (e.touches.length === 2) {
-        const [t0, t1] = e.touches;
-        this.startDist = Math.hypot(t1.pageX - t0.pageX, t1.pageY - t0.pageY);
-        this.startScale = this.el.object3D.scale.x;
-      } else if (e.touches.length === 1) {
-        this.startX = e.touches[0].pageX;
-      }
-    },
-    handleTouchMove(e) {
-      if (e.touches.length === 2 && this.startDist) {
-        const [t0, t1] = e.touches;
-        const dist = Math.hypot(t1.pageX - t0.pageX, t1.pageY - t0.pageY);
-        const factor = dist / this.startDist;
-        let newScale = this.startScale * factor;
-        newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, newScale));
-        this.el.object3D.scale.set(newScale, newScale, newScale);
-      } else if (e.touches.length === 1 && this.startX !== null) {
-        const dx = e.touches[0].pageX - this.startX;
-        this.el.object3D.rotation.y += dx * 0.005;
-        this.startX = e.touches[0].pageX;
-      }
-    },
-    handleTouchEnd() {
-      this.startDist = null;
-      this.startScale = null;
-      this.startX = null;
+    handle(e) {
+      try {
+        if (e.type === 'touchstart') {
+          if (e.touches.length === 2) {
+            const [a,b] = e.touches;
+            this.startDist = Math.hypot(b.pageX-a.pageX, b.pageY-a.pageY);
+            this.startScale = this.el.object3D.scale.x;
+          } else if (e.touches.length === 1) {
+            this.startX = e.touches[0].pageX;
+          }
+        } else if (e.type === 'touchmove') {
+          if (e.touches.length === 2 && this.startDist) {
+            const [a,b] = e.touches;
+            const d = Math.hypot(b.pageX-a.pageX, b.pageY-a.pageY);
+            const factor = d / this.startDist;
+            const newS = Math.max(this.data.minScale, Math.min(this.data.maxScale, this.startScale * factor));
+            this.el.object3D.scale.set(newS,newS,newS);
+          } else if (e.touches.length === 1 && this.startX !== null) {
+            const dx = e.touches[0].pageX - this.startX;
+            this.el.object3D.rotation.y += dx * 0.005;
+            this.startX = e.touches[0].pageX;
+          }
+        } else if (e.type === 'touchend') {
+          this.startDist = null; this.startScale = null; this.startX = null;
+        }
+      } catch(err) { console.warn('gesture err', err); }
     }
   });
 
-  // ---------- Main logic ----------
+  // --------- main ---------
   document.addEventListener('DOMContentLoaded', () => {
-    const previews = document.querySelectorAll('.preview');
-    const startARBtn = document.getElementById('start-ar');
-    const clearBtn = document.getElementById('clear-scene');
+    const previewNodes = document.querySelectorAll('.preview');
+    const startBtn = document.getElementById('start-ar');
+    const clearBtn = document.getElementById('clear');
     const hint = document.getElementById('hint');
-    const scene = document.querySelector('a-scene');
+    const scene = document.getElementById('aframe-scene');
     const reticle = document.getElementById('reticle');
 
-    // Keep selected models (array of objects {glb, usdz, name})
+    let sceneReady = false;
+    let inAR = false;
     const selected = new Map();
 
-    // Toggle selection on preview click
-    previews.forEach(node => {
-      node.addEventListener('click', () => togglePreview(node));
-      node.addEventListener('keypress', (e) => { if (e.key === 'Enter' || e.key === ' ') togglePreview(node); });
+    // Wait for scene loaded for safety
+    scene.addEventListener('loaded', () => {
+      console.log('[APP] a-scene loaded');
+      sceneReady = true;
     });
 
-    function togglePreview(node) {
-      const name = node.dataset.name || 'model';
-      const glb = node.dataset.glb;
-      const usdz = node.dataset.usdz;
-      if (selected.has(node)) {
-        selected.delete(node);
-        node.classList.remove('selected');
-      } else {
-        selected.set(node, { name, glb, usdz });
-        node.classList.add('selected');
-      }
-      updateStartButton();
-    }
+    // Toggle preview selection
+    previewNodes.forEach(node => {
+      node.addEventListener('click', () => {
+        if (selected.has(node)) {
+          selected.delete(node);
+          node.classList.remove('selected');
+        } else {
+          const meta = { name: node.dataset.name, glb: node.dataset.glb, usdz: node.dataset.usdz };
+          selected.set(node, meta);
+          node.classList.add('selected');
+        }
+        updateStartButton();
+      });
+      node.addEventListener('keypress', (e) => { if (e.key==='Enter'||e.key===' ') node.click(); });
+    });
 
     function updateStartButton() {
       if (selected.size === 0) {
-        startARBtn.textContent = 'Model seçin';
-        startARBtn.disabled = true;
-        startARBtn.style.opacity = 0.6;
+        startBtn.textContent = 'Model seçin'; startBtn.disabled = true; startBtn.style.opacity = 0.6;
       } else {
-        startARBtn.disabled = false;
-        startARBtn.style.opacity = 1;
-        startARBtn.textContent = isIOS() ? 'iOS: Quick Look (AR Görüntüle)' : 'AR Başlat / Yerleştir';
+        startBtn.disabled = false; startBtn.style.opacity = 1;
+        startBtn.textContent = isIOS() ? 'iOS: Quick Look (AR Görüntüle)' : 'AR Başlat / Yerleştir';
       }
     }
     updateStartButton();
@@ -277,191 +181,161 @@
     // Clear placed models
     clearBtn.addEventListener('click', () => {
       const placed = scene.querySelectorAll('.placed-model');
-      placed.forEach(p => p.parentNode.removeChild(p));
+      placed.forEach(p => p.remove());
+      console.log('[APP] Sahne temizlendi');
     });
 
-    // AR start / place handler
-    let inARSession = false;
-    startARBtn.addEventListener('click', async () => {
-      if (selected.size === 0) { alert('Önce en az bir model seçin.'); return; }
+    // Start AR button
+    startBtn.addEventListener('click', async () => {
+      if (selected.size === 0) { alert('Önce bir model seçin.'); return; }
 
-      // iOS: open Quick Look. Prefer combined scene.usdz if provided as data attr on body
+      // iOS Quick Look flow
       if (isIOS()) {
-        // If you provide a combined USDZ (scene.usdz) link in <body data-scene-usdz="..."> it will be used
+        // If you supplied a combined scene.usdz via <body data-scene-usdz="/models/scene.usdz"> it will be used
         const combined = document.body.dataset.sceneUsdz;
         if (combined) {
-          // open combined Quick Look
           window.location.href = combined;
           return;
         }
-        // Otherwise open first selected's usdz (Quick Look can't easily combine multiple USDZ client-side)
-        const first = selected.values().next().value;
-        if (first && first.usdz) {
-          // Create an <a rel="ar"> anchor and click it
-          const a = document.createElement('a');
-          a.rel = 'ar';
-          a.href = first.usdz;
-          // Optionally add image child for reliability
-          const img = document.createElement('img');
-          img.src = first.thumbnail || ''; // if you have thumbnails, set data-thumbnail on preview
-          img.style.width = '1px'; img.style.height = '1px'; img.style.opacity = '0';
-          a.appendChild(img);
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(()=> a.remove(), 1000);
-          return;
-        } else {
-          alert('Seçili modelin .usdz dosyası bulunamadı.');
-          return;
-        }
+        // otherwise open first selected's usdz
+        const meta = selected.values().next().value;
+        if (!meta || !meta.usdz) { alert('Seçili model için .usdz yok.'); return; }
+        // create anchor and click
+        const a = document.createElement('a'); a.rel = 'ar'; a.href = meta.usdz;
+        const img = document.createElement('img'); img.style.width='1px'; img.style.height='1px'; img.style.opacity='0';
+        a.appendChild(img); document.body.appendChild(a);
+        console.log('[APP] Quick Look açılıyor:', meta.usdz);
+        a.click();
+        setTimeout(()=> a.remove(), 1200);
+        return;
       }
 
       // Android / WebXR flow
-      // Try to enter AR mode if not already
-      if (!inARSession) {
-        try {
-          if (scene.enterAR) {
-            scene.enterAR();
-            // Wait briefly for session to start; we can't await internal session but assume soon
-            setTimeout(()=> {
-              hint.style.display = 'block';
-              hint.textContent = 'Reticle görünür olunca ekrana dokunarak seçili modelleri yerleştirin.';
-              setTimeout(()=> hint.style.display='none', 3500);
-            }, 800);
-            inARSession = true;
-          } else {
-            // Fallback: try navigator.xr.requestSession (best-effort)
-            if (navigator.xr && navigator.xr.requestSession) {
-              try {
-                const session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures:['hit-test','local-floor'] });
-                // Let A-Frame handle rendering / session lifecycle - showing hint
-                inARSession = true;
-                hint.style.display = 'block';
-                hint.textContent = 'AR oturumu açıldı — reticle görünür olunca ekrana dokunarak yerleştirin.';
-                setTimeout(()=> hint.style.display='none', 4000);
-                // end session immediately? No, A-Frame should handle; this is best-effort fallback.
-                session.end();
-              } catch(err) {
-                console.warn('requestSession err', err);
-                alert('AR başlatılamadı. Chrome (Android) ve HTTPS üzerinde deneyin.');
-              }
-            } else {
-              alert('Cihazınız WebXR desteklemiyor.');
-            }
-          }
-        } catch (err) {
-          console.warn('enterAR error', err);
-          alert('AR başlatılamadı. Tarayıcı izinlerini ve HTTPS durumunu kontrol edin.');
-        }
+      if (!sceneReady) {
+        alert('Sahne henüz yüklenmedi, birkaç saniye bekleyip yeniden deneyin.');
         return;
-      } else {
-        // already in AR session: user clicked "AR Başlat / Yerleştir" again -> inform
-        hint.style.display = 'block';
-        hint.textContent = 'Reticle görünür olunca ekrana dokunarak seçili modelleri yerleştirin.';
-        setTimeout(()=> hint.style.display='none', 3000);
       }
-    });
 
-    // Place models on scene click (Android/WebXR)
-    // We listen to scene click; when reticle visible and user clicks, spawn selected models with offsets
-    scene.addEventListener('click', (ev) => {
-      // iOS handled earlier via Quick Look; skip
-      if (isIOS()) return;
-
-      // ensure reticle visible
-      const vis = reticle.getAttribute('visible');
-      if (!vis || vis === 'false') return;
-
-      // compute base position
-      const base = reticle.getAttribute('position'); // {x,y,z}
-      if (!base) return;
-
-      // offsets array (customize as needed). We'll position models relative to base.
-      const offsets = [
-        { x: 0, y: 0, z: 0 },   // first selected -> center
-        { x: 0.8, y: 0, z: 0 }, // second -> right
-        { x: -0.8, y: 0, z: 0 },// third -> left
-        { x: 0, y: 0, z: -0.8 },// fourth -> front
-        { x: 0, y: 0, z: 0.8 }  // fifth -> back
-      ];
-
-      // place models in the order of selection
-      let i = 0;
-      for (const [node, meta] of selected.entries()) {
-        // create entity
-        const ent = document.createElement('a-entity');
-        // If path is a URL or relative path, A-Frame can load it directly
-        ent.setAttribute('gltf-model', meta.glb);
-        // compute offset
-        const off = offsets[i] || {x: 0.2 * i, y: 0, z: 0};
-        const px = base.x + off.x;
-        const py = base.y + off.y;
-        const pz = base.z + off.z;
-        ent.setAttribute('position', `${px} ${py} ${pz}`);
-        ent.setAttribute('scale', '0.6 0.6 0.6');
-        ent.setAttribute('gestures-handler', '');
-        ent.setAttribute('class', 'placed-model can-click');
-        // optional: add a small name label above
-        const label = document.createElement('a-entity');
-        label.setAttribute('text', `value: ${meta.name}; align: center; color: #fff; width: 2`);
-        label.setAttribute('position', `0 ${1.2} 0`);
-        ent.appendChild(label);
-
-        scene.appendChild(ent);
-        i++;
-      }
-    });
-
-    // === Hit test -> reticle visibility update ===
-    // Different ar-hit-test wrappers emit different event names; we listen to multiple.
-    scene.addEventListener('ar-hit-test', (ev) => {
-      // try to extract result defensively
-      const results = ev.detail && (ev.detail.results || ev.detail);
-      if (!results) { reticle.setAttribute('visible', 'false'); return; }
-      // pick first
-      const r = Array.isArray(results) ? results[0] : results;
-      // different wrappers may provide transform/pose or intersection.point
       try {
-        const p = (r && (r.transform?.position || r.pose?.position || r.position || r.point || r.intersection?.point || r.intersection)) || null;
+        console.log('[APP] AR başlatılıyor...');
+        if (typeof scene.enterAR === 'function') {
+          await scene.enterAR();
+          inAR = true;
+          hint.style.display = 'block';
+          hint.textContent = 'Reticle görünür olunca yere dokunarak seçili modelleri yerleştirin.';
+          setTimeout(()=> hint.style.display='none', 4000);
+          console.log('[APP] scene.enterAR başarılı');
+        } else if (navigator.xr && navigator.xr.requestSession) {
+          // best-effort fallback: requestSession may be handled by browser/A-Frame
+          const sess = await navigator.xr.requestSession('immersive-ar', { requiredFeatures:['hit-test','local-floor'] });
+          // do not end session here — handing session to A-Frame is non-trivial; we only check capability.
+          console.log('[APP] requestSession OK (fallback) — session id:', sess);
+          inAR = true;
+          hint.style.display = 'block';
+          hint.textContent = 'AR oturumu açıldı (fallback). Reticle görünür olunca yerleştirin.';
+          setTimeout(()=> hint.style.display='none', 3500);
+          // we do NOT call sess.end() here (that caused crashes)
+        } else {
+          throw new Error('Cihazınızda WebXR desteklenmiyor veya tarayıcı uyumsuz.');
+        }
+      } catch (err) {
+        console.error('[APP] AR başlatma hatası:', err);
+        alert('AR başlatılamadı: ' + (err && err.message ? err.message : err));
+      }
+    });
+
+    // Place models when scene clicked and reticle visible
+    scene.addEventListener('click', (ev) => {
+      if (isIOS()) return; // iOS handled earlier
+      try {
+        const vis = reticle.getAttribute('visible');
+        if (!vis || vis === 'false') { console.log('[APP] Reticle görünür değil — yerleştirme iptal'); return; }
+        const base = reticle.getAttribute('position');
+        if (!base) { console.log('[APP] Reticle pozisyonu yok'); return; }
+
+        // offsets for placement (customize)
+        const offsets = [
+          {x:0, y:0, z:0},
+          {x:0.7, y:0, z:0},
+          {x:-0.7, y:0, z:0},
+          {x:0, y:0, z:-0.7},
+          {x:0, y:0, z:0.7}
+        ];
+
+        let idx = 0;
+        for (const meta of selected.values()) {
+          if (!meta.glb) { console.warn('[APP] GLB yolu yok, atla:', meta); continue; }
+          const ent = document.createElement('a-entity');
+          // Use relative URL string for gltf-model; if you used <a-asset-item> with id, use '#id'
+          ent.setAttribute('gltf-model', meta.glb);
+          const off = offsets[idx] || {x:0.2*idx, y:0, z:0};
+          ent.setAttribute('position', `${base.x + off.x} ${base.y + off.y} ${base.z + off.z}`);
+          // start with smaller scale to avoid memory issues; user can scale via gestures
+          ent.setAttribute('scale', '0.35 0.35 0.35');
+          ent.setAttribute('gestures-handler', '');
+          ent.classList.add('placed-model','can-click');
+
+          // optional: attach a model-loaded/error listener
+          ent.addEventListener('model-loaded', (e)=> console.log('[APP] model-loaded', meta.name));
+          ent.addEventListener('model-error', (e)=> console.error('[APP] model-error', meta.name, e));
+
+          scene.appendChild(ent);
+          idx++;
+        }
+        console.log('[APP] Seçili modeller yerleştirildi:', selected.size);
+      } catch(err) {
+        console.error('[APP] yerleştirme hatası:', err);
+        alert('Yerleştirme sırasında hata: ' + (err.message || err));
+      }
+    });
+
+    // Hit-test event handling (çeşitli event adlarına tolerant)
+    function handleHitTestEvent(ev) {
+      try {
+        const detail = ev.detail || {};
+        // possible shapes:
+        // - detail.results -> array of hit result wrappers
+        // - detail.intersection -> { point: {x,y,z} }
+        // - detail.hit -> ...
+        // - or ev.detail itself is an XRHitTestResult wrapper
+        let p = null;
+
+        if (detail.results && detail.results.length) {
+          const r = detail.results[0];
+          // unwrap different prop names
+          p = r && (r.position || r.point || (r.transform && r.transform.position) || (r.pose && r.pose.position));
+        } else if (detail.intersection && detail.intersection.point) {
+          p = detail.intersection.point;
+        } else if (detail.hit && detail.hit.position) {
+          p = detail.hit.position;
+        } else if (detail.position) {
+          p = detail.position;
+        } else if (ev.detail && ev.detail[0] && ev.detail[0].point) {
+          p = ev.detail[0].point;
+        }
+
         if (p && typeof p.x !== 'undefined') {
           reticle.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
           reticle.setAttribute('visible', 'true');
-        } else if (r && r.matrix) {
-          // matrix fallback
-          // Not attempting full matrix decode here; leave reticle hidden
-          reticle.setAttribute('visible', 'true');
         } else {
-          reticle.setAttribute('visible', 'false');
+          // fallback: sometimes ar-hit-test component sets matrix; show reticle if present
+          if (detail && detail.matrix) reticle.setAttribute('visible','true');
+          else reticle.setAttribute('visible','false');
         }
-      } catch(e) { console.warn(e); reticle.setAttribute('visible', 'false'); }
-    });
-
-    scene.addEventListener('ar-hit-test-result', (ev) => {
-      const inter = ev.detail && (ev.detail.intersection || ev.detail.hit || ev.detail);
-      if (inter && inter.point) {
-        const p = inter.point;
-        reticle.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
-        reticle.setAttribute('visible', 'true');
-      } else {
-        reticle.setAttribute('visible', 'false');
+      } catch(err) {
+        console.warn('[APP] hit-test parse err', err);
+        reticle.setAttribute('visible','false');
       }
-    });
-
-    // initial small hint depending on platform
-    if (isIOS()) {
-      hint.style.display = 'block';
-      hint.textContent = 'iOS algılandı — seçili model için Quick Look açılır (çoklu model tek Quick Look istersen birleşik .usdz sun).';
-      setTimeout(()=> hint.style.display='none', 3800);
-    } else if (isAndroid()) {
-      hint.style.display = 'block';
-      hint.textContent = 'Android algılandı — AR Başlat tuşuna bas, reticle göründüğünde yere dokunarak seçili modelleri yerleştir.';
-      setTimeout(()=> hint.style.display='none', 3800);
-    } else {
-      hint.style.display = 'block';
-      hint.textContent = 'Cihazınız mobil değil veya WebXR desteklenmiyor. Yine de model önizlemeleri gösterilir.';
-      setTimeout(()=> hint.style.display='none', 4200);
     }
-  }); // DOMContentLoaded
+
+    scene.addEventListener('ar-hit-test', handleHitTestEvent);
+    scene.addEventListener('ar-hit-test-result', handleHitTestEvent);
+    scene.addEventListener('ar-hit-test-results', handleHitTestEvent);
+
+    // global error/log helpers (geliştirme için)
+    window.addEventListener('error', (ev) => { console.error('[window.error]', ev.message, ev.error); });
+    window.addEventListener('unhandledrejection', (ev) => { console.error('[unhandledrejection]', ev.reason); });
+  });
 </script>
 </body>
 </html>
